@@ -43,8 +43,10 @@ module HackerCurse
     attr_accessor :domain_url
     attr_accessor :parent
     attr_writer :comments
+    attr_reader :hash
     def initialize h
       @comments = nil
+      @hash = h
     [:title, :article_url, :points, :comment_count, :comments_url, :age_text, :age,
     :submitter, :submitter_url, :domain, :domain_url, :comments].each do |sym|
       instance_variable_set("@#{sym.to_s}", h[sym]) if h.key? sym
@@ -62,18 +64,38 @@ module HackerCurse
       @parent._retrieve_comments url
     end
     alias :each_comment :each
+    def [](sym)
+      @hash[sym]
+    end
+    def keys
+      @hash.keys
+    end
+    def values
+      @hash.values
+    end
   end
   class ForumComment
     attr_accessor :submitter, :submitter_url
     attr_accessor :age, :age_text, :points, :head
     attr_accessor :comment_text
     attr_accessor :comment_url
+    attr_reader :hash
     def initialize h
 
+      @hash = h
     [:points, :comment_url, :age_text, :age,
     :submitter, :submitter_url, :comment_text, :head].each do |sym|
       instance_variable_set("@#{sym.to_s}", h[sym])
     end
+    end
+    def [](sym)
+      @hash[sym]
+    end
+    def keys
+      @hash.keys
+    end
+    def values
+      @hash.values
     end
   end
 
@@ -109,7 +131,7 @@ module HackerCurse
       @htmloutfile = @options[:htmloutfile]
       @num_pages = @options[:num_pages] || 1
       @more_url = nil
-      puts "initialize: url is #{@url} "
+      #puts "initialize: url is #{@url} "
     end
     def get_first_page
       #@arr = to_hash @url
@@ -173,11 +195,11 @@ module HackerCurse
     def get_comments index
       url = get_comments_url index
       if url
-        puts url
+        #puts url
         comments = convert_comment_url url
         return comments
-      else
-        puts "Sorry no url for #{index} "
+      #else
+        #puts "Sorry no url for #{index} "
       end
       return []
     end
@@ -200,7 +222,8 @@ module HackerCurse
       elsif age_text.index("year")
         i *= ff*60*60*24*365
       else
-        raise "don't know how to convert #{age_text} "
+        #raise "don't know how to convert #{age_text} "
+        return 0
       end
       return (Time.now.to_i - i)
     end
