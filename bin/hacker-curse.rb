@@ -4,12 +4,12 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2014-07-16 - 13:10
 #      License: MIT
-#  Last update: 2014-07-23 19:21
+#  Last update: 2014-07-24 19:07
 # ----------------------------------------------------------------------------- #
 #  hacker-curse.rb  Copyright (C) 2012-2014 j kepler
-!/usr/bin/env ruby
+#!/usr/bin/env ruby
 
-require 'lib/hacker/curse/hackernewsparser.rb'
+require 'hacker/curse/hackernewsparser.rb'
 
 if true
   begin
@@ -33,7 +33,7 @@ if true
         options[:delimiter] = v
       end
       opts.on("-s subforum", String,"--subforum", "Get articles from subforum such as newest") do |v|
-        options[:subreddit] = v
+        options[:subforum] = v
         url = "https://news.ycombinator.com/#{v}"
         #url = "http://www.reddit.com/r/#{v}/.rss"
       end
@@ -55,17 +55,19 @@ if true
     url ||= "https://news.ycombinator.com/news"
     options[:url] = url
     hn = HackerNewsParser.new options
-    arr = hn.next_page
+    arr = hn.get_next_page
     titles_only = options[:titles]
     sep = options[:delimiter] || "\t"
     limit = options[:number] || arr.count
+    # this yields a ForumArticle not a hash.
     arr.each_with_index do |e, i|
       break if i >= limit
+      h = e.hash
       if titles_only
         puts "#{e[:title]}"
       else
         unless options[:verbose]
-          e.delete(:description)
+          #e.delete(:description)
         end
         if i == 0
           s = e.keys.join(sep)
