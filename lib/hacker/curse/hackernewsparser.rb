@@ -1,4 +1,4 @@
-require 'lib/hacker/curse/abstractsiteparser'
+require 'hacker/curse/abstractsiteparser'
 
 module HackerCurse
 
@@ -11,7 +11,7 @@ module HackerCurse
       super config
     end
     def _retrieve_page url
-      puts "got url #{url} "
+      #puts "got url #{url} "
       raise "url should be string" unless url.is_a? String
       arr = to_hash url
       page = hash_to_class arr
@@ -120,7 +120,9 @@ module HackerCurse
       if @save_html
         outfile = @htmloutfile || "hackernews.html"
         #if !File.exists? url
-          File.open(outfile, 'w') {|f| f.write(out.readlines) }
+        puts "class of out is #{out.class} "
+        out.rewind
+          File.open(outfile, 'w') {|f| f.write(out.read) }
         #end
       end
       count = 0
@@ -133,12 +135,12 @@ module HackerCurse
       links.each_with_index do |li, i|
         x = li.css("td.title")
         if !x.empty?
-          puts "   ---- title ----- #{x.count} "
+          #puts "   ---- title ----- #{x.count} "
           count = x[0].text
-          puts count
+          #puts count
           if x.count < 2
             article_url = x[0].css("a")[0]["href"]   # link url
-            puts article_url
+            #puts article_url
             h = {}
             h[:title] = count
             h[:article_url] = article_url
@@ -151,8 +153,8 @@ module HackerCurse
           break if x.count < 2
           title = x[1].css("a")[0].text   # title
           article_url = x[1].css("a")[0]["href"]   # link url
-          puts article_url
-          puts title
+          #puts article_url
+          #puts title
           h = {}
           h[:number] = count
           h[:title] = title
@@ -162,7 +164,7 @@ module HackerCurse
           x = li.css("td.subtext")
           if !x.empty?
             fulltext = x.text
-            puts "   ---- subtext ----- (#{fulltext})"
+            #puts "   ---- subtext ----- (#{fulltext})"
             submitter = nil
             submitter_url = nil
             comment = nil
@@ -179,20 +181,22 @@ module HackerCurse
               end
             end
             points = x.css("span").text rescue ""
-            puts submitter
-            puts submitter_url
-            puts comment
-            puts comments_url
-            puts points
+            #puts submitter
+            #puts submitter_url
+            #puts comment
+            #puts comments_url
+            #puts points
             h[:submitter] = submitter
             h[:submitter_url] = submitter_url
             h[:comment_count] = comment
             h[:comments_url] = comments_url
             h[:points] = points
-            age = li.xpath("td[@class='subtext']/text()")[1].text rescue ""
-            puts age
-            h[:age_text] = age
-            h[:age] = human_age_to_unix(age)
+            m = fulltext.scan(/\d+ \w+ ago/)
+            if m
+              h[:age_text] = m.first
+              h[:age] = human_age_to_unix(m.first)
+            end
+            #age = li.xpath("td[@class='subtext']/text()")[1].text rescue ""
             #puts "fulltext: #{fulltext} "
           end
         end
