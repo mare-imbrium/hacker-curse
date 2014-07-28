@@ -1,21 +1,22 @@
-require 'lib/hacker/curse/abstractsiteparser'
+require 'hacker/curse/abstractsiteparser'
 
 module HackerCurse
 
   class RedditNewsParser < AbstractSiteParser
     def initialize config={}
       @host = config[:host] || "http://www.reddit.com/"
-      subforum = config[:subforum] || "programming"
+      subforum = config[:subforum] || "unknown"
       _url="#{@host}/r/#{subforum}/.mobile"
       config[:url] ||= _url
+      @subforum = subforum
       super config
     end
     def _retrieve_page url
-      puts "got url #{url} "
+      #puts "got url #{url} "
       raise "url should be string" unless url.is_a? String
       arr = to_hash url
       page = hash_to_class arr
-      to_yml "test19.yml", arr
+      to_yml "#{@subforum}.yml", arr
       return page
     end
     # reddit
@@ -28,7 +29,7 @@ module HackerCurse
     def to_hash url
       page = {}
       arr = Array.new
-      doc  = Nokogiri::HTML(open(url))
+      doc  = get_doc_for_url url
       page[:url] = url
       #filename = "r.#{subr}.yml"
       links = doc.css("li div.link")
@@ -55,17 +56,21 @@ module HackerCurse
         e = li.css("span.buttons > a")
         if !e.empty?
           e = e.first
-          h[:comment_count] = e.text
+          h[:comment_count] = e.text.to_i
           h[:comments_url] = e["href"]
+        else
+          h[:comment_count] = 0
+          h[:comments_url] = ""
         end
         byline =  li.css("p.byline").text
         h[:byline] = byline
         parts = byline.split("|")
         points = parts[0].strip
         age = parts.last.split("by").first.strip
-        h[:age_text]= age
+        h[:age_text]= age.scan(/\d+ \w/).first
+        #h[:age_text]= age
         h[:age] = human_age_to_unix(age)
-        h[:points]= points
+        h[:points]= points.to_i
         #puts points
         #puts age
         arr << h
@@ -119,9 +124,9 @@ module HackerCurse
       h = {}
       main = doc.css("li div.link")
       maintext = main.text
-      puts maintext
-      puts main.css("a").count
-      puts main.css("a").first
+      #puts maintext
+      #puts main.css("a").count
+      #puts main.css("a").first
       # this dumps the whole line
       h[:main_text] = maintext
       main.css("a").each_with_index do |l, i|
@@ -145,18 +150,18 @@ module HackerCurse
       arr = []
       comments = doc.css("li div.comment")
       comments.each_with_index do |co, ix|
-        puts  ix
+        #puts  ix
         hh = {}
         arr << hh
         comment = co.css("div.md").text
         hh[:comment_text] = comment
         byline = co.css("p.byline")
-        puts "byline:"
-        puts byline
+        #puts "byline:"
+        #puts byline
         bytext = byline.text
         hh[:head] = bytext
-        puts "bytext:"
-        puts bytext
+        #puts "bytext:"
+        #puts bytext
         m = bytext.scan(/\d+ \w+ ago/)
         hh[:age_text] = m.first
         hh[:age] = human_age_to_unix(m.first)
