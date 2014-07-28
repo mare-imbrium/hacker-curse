@@ -7,6 +7,7 @@ module HackerCurse
       @host = config[:host] || "https://news.ycombinator.com"
       subforum = config[:subforum] || "news"
       _url="#{@host}/#{subforum}"
+      @subforum = subforum
       config[:url] ||= _url
       super config
     end
@@ -15,7 +16,7 @@ module HackerCurse
       raise "url should be string" unless url.is_a? String
       arr = to_hash url
       page = hash_to_class arr
-      to_yml "test19.yml", arr
+      to_yml "#{@subforum}.yml", arr
       return page
     end
     # currently returns a Hash. containing various entries relating to the main article
@@ -79,7 +80,7 @@ module HackerCurse
       comheads.zip(comments) do |head,c| 
         hh={}; hh[:head] = head.text; 
         m = head.text.scan(/\d+ \w+ ago/)
-        hh[:age_text] = m.first
+        hh[:age_text] = m.first.scan(/\d+ \w/).first
         hh[:age] = human_age_to_unix(m.first)
         head.css("a").each_with_index do |e, i|
           link = e["href"]
@@ -115,16 +116,7 @@ module HackerCurse
     end
     # convert the front page to a hash
     def to_hash url
-      out = open(url)
-      doc  = Nokogiri::HTML(out)
-      if @save_html
-        outfile = @htmloutfile || "hackernews.html"
-        #if !File.exists? url
-        puts "class of out is #{out.class} "
-        out.rewind
-          File.open(outfile, 'w') {|f| f.write(out.read) }
-        #end
-      end
+      doc  = get_doc_for_url url
       count = 0
       page = {}
       page[:url] = url
@@ -156,7 +148,7 @@ module HackerCurse
           #puts article_url
           #puts title
           h = {}
-          h[:number] = count
+          #h[:number] = count
           h[:title] = title
           h[:article_url] = article_url
           arr << h
@@ -178,6 +170,7 @@ module HackerCurse
               when 1
                 comment = tt.text
                 comments_url = tt["href"]
+                comments_url = "#{@host}/#{comments_url}"
               end
             end
             points = x.css("span").text rescue ""
@@ -188,16 +181,17 @@ module HackerCurse
             #puts points
             h[:submitter] = submitter
             h[:submitter_url] = submitter_url
-            h[:comment_count] = comment
+            h[:comment_count] = comment.to_i
             h[:comments_url] = comments_url
-            h[:points] = points
+            h[:points] = points.to_i
             m = fulltext.scan(/\d+ \w+ ago/)
             if m
-              h[:age_text] = m.first
+              #h[:age_text] = m.first
+              h[:age_text] = m.first.scan(/\d+ \w/).first
               h[:age] = human_age_to_unix(m.first)
             end
-            #age = li.xpath("td[@class='subtext']/text()")[1].text rescue ""
             #puts "fulltext: #{fulltext} "
+            h[:byline] = fulltext
           end
         end
       end
