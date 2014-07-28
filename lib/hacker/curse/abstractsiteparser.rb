@@ -2,7 +2,8 @@
 #
 # Fetch hacker news front page entries into a hash.
 # TODO : get next page. Nexts is /news2 but after that it changes
-# TODO : this is a hardcoded algo, we need to use xpath or CSS properly
+# TODO : 2014-07-27 - 12:42 put items in hash in an order, so printers can use first 4 cols for long listing
+#       title, age_text, comment_count, points, article_url, comments_url, age, submitter, submitter_url
 #
 require 'open-uri'
 require 'nokogiri'
@@ -162,11 +163,32 @@ module HackerCurse
     def _retrieve_page url
       raise "must be implemented by concrete class"
     end
+    # write as yml, this doesn't work if multiple pages since we call x times
+    #  so previous is overwritten
+    #  This should be called with final class
     def to_yml outfile, arr = @arr
       require 'yaml'
+      if outfile.index("/")
+        outfile = outfile.gsub("/","__")
+      end
       File.open(outfile, 'w' ) do |f|
         f << YAML::dump(arr)
       end
+    end
+    # returns nokogiri html doc and writes html is required.
+    def get_doc_for_url url
+      #puts "get_doc #{url} "
+      out = open(url)
+      doc  = Nokogiri::HTML(out)
+      if @save_html
+        subforum = @subforum || "unknown"
+        outfile = @htmloutfile || "#{subforum}.html"
+        #if !File.exists? url
+        out.rewind
+          File.open(outfile, 'w') {|f| f.write(out.read) }
+        #end
+      end
+      return doc
     end
     # this is a test method so we don't keep hitting HN while testing out and getting IP blocked.
     def load_from_yml filename="hn.yml"
