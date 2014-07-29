@@ -20,6 +20,8 @@ module HackerCurse
       return page
     end
     # reddit
+    # @return array of ForumComment objects
+    #  For each, you may retrieve +hash+ or individual items such as comment_text, points, age, age_text, submitter, head
     def _retrieve_comments url
       arr = to_hash_comment url
       pages = hash_to_comment_class arr
@@ -136,7 +138,7 @@ module HackerCurse
           h[:title] = l.text
           h[:article_url] = l["href"]
         when 1
-          h[:comments] = l.text
+          h[:comment_count] = l.text
           h[:comments_url] = l["href"]
         when 2
           h[:submitter] = l.text
@@ -146,6 +148,12 @@ module HackerCurse
           h[:domain_url] = l["href"]
         end
       end
+      byline = main.css("p.byline").text
+      h[:byline] = byline
+      points = byline.scan(/\d+ point/).first
+      age_text = byline.scan(/\d+ \w+ ago/).first
+      h[:points] = points
+      h[:age_text] = age_text
 
       arr = []
       comments = doc.css("li div.comment")
@@ -163,7 +171,7 @@ module HackerCurse
         #puts "bytext:"
         #puts bytext
         m = bytext.scan(/\d+ \w+ ago/)
-        hh[:age_text] = m.first
+        hh[:age_text] = m.first.sub(/ago/,"")
         hh[:age] = human_age_to_unix(m.first)
         link = byline.css("a").first
         if link
@@ -173,13 +181,19 @@ module HackerCurse
           hh[:submitter_url] = submitter_url
         end
         points = byline.css("span.score").text rescue ""
-        hh[:points] = points
+        hh[:points] = points.sub(/points?/,"")
       end
       h[:comments] = arr
       return h
     end
     # reddit
     def hash_to_comment_class arr
+      page = ForumArticle.new arr
+      return page
+    end
+    # this returns an array of Forumcomments but that means the article title
+    #  etc is not there, and if the output is saved, then that info may be required.
+    def old_hash_to_comment_class arr
       co = arr[:comments]
       pages = Array.new
       co.each do |h|
