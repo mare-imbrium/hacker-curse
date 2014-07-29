@@ -42,16 +42,26 @@ module HackerCurse
     attr_accessor :submitter_url
     attr_accessor :domain
     attr_accessor :domain_url
+    # byline is dump of text on top containing all the info on points, # of comments, nn hours aga
+    attr_accessor :byline
     attr_accessor :parent
     attr_writer :comments
     attr_reader :hash
     def initialize h
       @comments = nil
       @hash = h
-    [:title, :article_url, :points, :comment_count, :comments_url, :age_text, :age,
-    :submitter, :submitter_url, :domain, :domain_url, :comments].each do |sym|
-      instance_variable_set("@#{sym.to_s}", h[sym]) if h.key? sym
-    end
+      [:title, :article_url, :points, :comment_count, :comments_url, :age_text, :age,
+       :submitter, :submitter_url, :domain, :domain_url, :byline].each do |sym|
+        instance_variable_set("@#{sym.to_s}", h[sym]) if h.key? sym
+      end
+      if h.key? :comments
+        c = h[:comments]
+        @comments = Array.new
+        c.each do |h|
+          fc = ForumComment.new h
+          @comments << fc
+        end
+      end
     end
 
     def comments
