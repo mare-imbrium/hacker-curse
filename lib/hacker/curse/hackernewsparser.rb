@@ -33,6 +33,10 @@ module HackerCurse
       return pages
     end
     def hash_to_comment_class arr
+      page = ForumArticle.new arr
+      return page
+    end
+    def oldhash_to_comment_class arr
       co = arr[:comments]
       pages = Array.new
       co.each do |h|
@@ -56,9 +60,11 @@ module HackerCurse
       h[:article_url] = article_url
 
       subtext = page.css("td.subtext")
-      h[:subtext] = subtext.text
+      h[:byline] = subtext.text
+      # TODO extract age_text
+      h[:age_text] = subtext.text.scan(/\d+ \w+ ago/).first
       score = subtext.css("span").text
-      h[:score] = score
+      h[:points] = score
       subtext.css("a").each_with_index do |e, i|
         link = e["href"]
         text = e.text
@@ -79,18 +85,21 @@ module HackerCurse
       carr = Array.new
       comheads.zip(comments) do |head,c| 
         hh={}; hh[:head] = head.text; 
+        #$stderr.puts "head:: #{head.text}"
         m = head.text.scan(/\d+ \w+ ago/)
-        hh[:age_text] = m.first.scan(/\d+ \w/).first
-        hh[:age] = human_age_to_unix(m.first)
-        head.css("a").each_with_index do |e, i|
-          link = e["href"]
-          text = e.text
-          if link.index("user") == 0
-            hh[:submitter] = text
-            hh[:submitter_url] = link
-          elsif link.index("item") == 0
-            hh[:text] = text
-            hh[:comment_url] = link
+        if !m.empty?
+          hh[:age_text] = m.first.scan(/\d+ \w/).first
+          hh[:age] = human_age_to_unix(m.first)
+          head.css("a").each_with_index do |e, i|
+            link = e["href"]
+            text = e.text
+            if link.index("user") == 0
+              hh[:submitter] = text
+              hh[:submitter_url] = link
+            elsif link.index("item") == 0
+              hh[:text] = text
+              hh[:comment_url] = link
+            end
           end
         end
         hh[:comment_text]=c; 
