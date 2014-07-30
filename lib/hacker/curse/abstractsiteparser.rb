@@ -185,6 +185,13 @@ module HackerCurse
         f << YAML::dump(arr)
       end
     end
+    # retrieves the comments for a url and stores in outputfile in YML format
+    def save_comments_as_yml outputfile, url
+      pages = _retrieve_comments url
+      if pages 
+        to_yml outputfile, pages.hash
+      end
+    end
     # returns nokogiri html doc and writes html is required.
     def get_doc_for_url url
       #puts "get_doc #{url} "
