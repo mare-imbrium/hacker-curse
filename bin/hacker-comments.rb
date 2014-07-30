@@ -1,14 +1,32 @@
 #!/usr/bin/env ruby
 # ----------------------------------------------------------------------------- #
 #         File: hacker-comments.rb
-#  Description: view hacker news on terminal
+#  Description: view comments on terminal or save to file and view
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2014-07-16 - 13:10
 #      License: MIT
-#  Last update: 2014-07-29 22:29
+#  Last update: 2014-07-30 01:19
 # ----------------------------------------------------------------------------- #
 #  hacker-comments.rb  Copyright (C) 2012-2014 j kepler
 
+## NOTE: This uses a comments page from ycombinator.com and from the reddit MOBILE page.
+#  If you give a comment url from the normal reddit.com page, it will NOT work as all.
+#
+#  The comment URL is what is given out by the hacker-tsv.rb program, and can be taken
+#   from reddit.com/programming/.mobile
+#
+# This is a sample front-end to the hacker-curse and prints out
+#  comments given a comment url. 
+#  It the comment url is given it determines the host from the URL.
+#
+# Two formats are provided:
+#   - line : each item is in a separate line, which can be used for further processing
+#   - compact : some fields clubbed together on a line, to make viewing easier
+# One may have the output save to a YML file using '-y' and further use that by loading it into a hash.
+#
+# In case, the comments page is saved to disk, you may provide the file name, but then you must give
+#  the host name also, so we know which parser to use.
+#
 require 'hacker/curse/hackernewsparser.rb'
 require 'hacker/curse/redditnewsparser.rb'
 
@@ -92,6 +110,7 @@ end
 url = nil
 host = nil
 format = "line"
+ymlfile = nil
 # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
 require 'optparse'
 options = {}
@@ -108,15 +127,15 @@ OptionParser.new do |opts|
   #opts.on("-H (reddit|hn)", String,"--hostname", "Get articles from HOST") do |v|
     #host = v
   #end
-  opts.on("-f FORMAT", String,"--format", "write in format: compact, line, yml") do |v|
+  opts.on("-f FORMAT", String,"--format", "write in format: compact, line") do |v|
     format = v
-  end
-  opts.on("--save-html", "Save html to file?") do |v|
-    options[:save_html] = true
   end
   opts.on("-w PATH", String,"--save-html-path", "Save html to file PATH") do |v|
     options[:htmloutfile] = v
     options[:save_html] = true
+  end
+  opts.on("-y PATH", String,"--save-yml-path", "Save yml to file PATH") do |v|
+    ymlfile = v
   end
 end.parse!
 
@@ -148,8 +167,13 @@ unless hn
     exit(1)
   end
 end
+if ymlfile
+  hn.save_comments_as_yml ymlfile, url
+  exit
+end
 #comments = hn._retrieve_comments url
 article = hn._retrieve_comments url
+#hn.to_yml "comments.yml", article.hash
 case format
 when "compact"
   format_compact article
