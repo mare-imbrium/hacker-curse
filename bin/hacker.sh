@@ -5,37 +5,20 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2014-07-28 - 11:29
 #      License: MIT
-#  Last update: 2014-07-30 00:36
+#  Last update: 2014-07-30 11:46
 # ----------------------------------------------------------------------------- #
 #  hacker.sh  Copyright (C) 2012-2014 j kepler
-#  Last update: 2014-07-30 00:36
+#  Last update: 2014-07-30 11:46
 
-## vim:ts=4:sw=4:tw=100:ai:nowrap:formatoptions=croqln:filetype=sh
-# -------------------------------
-# :source ~/.vim/bash_vimrc   - some mappings to give control structures
-# :source ~/bin/utils.sh
-# if running as a cronjob prepend /usr/local/bin:/usr/local/sbin
-# export PATH="/usr/local/bin:/usr/local/sbin:$PATH:/Users/rahul/bin"
-# also cd in the folder you want.
-# cd /Users/rahul/bin
-#### --- cleanup code use at start ---- ####
-# TMPFILE=${TMPDIR:-/tmp}/prog.$$
-# trap "rm -f $TMPFILE; exit 1" 0 1 2 3 13 15
-# at end of prog
-#rm -f $TMPFILE
-#trap 0
-#exit 0
+
 set -euo pipefail
-IFS=$'\n\t'
-APPNAME=$( basename $0 )
-# cron jobs can't access my env, and i don't want to expose mailid to spammers
 
 pages=1
 today=$(date +"%Y-%m-%d-%H%M")
 echo $today
 curdir=$( basename $(pwd))
 
-while [[ $1 = -* ]]; do
+while [[ "$1" = -* ]]; do
 case "$1" in
     -H|--hostname)   shift
                      hostname=$1
@@ -88,20 +71,20 @@ echo "subreddit is: $subr "
 
 case "$subr" in
     "news")
-        hacker-tsv -H hn -p $pages -s news -w news.html > $outputfile
+        hacker-tsv.rb -H hn -p $pages -s news -w news.html > $outputfile
         ;;
     "newest")
-        hacker-tsv -H hn -p $pages -s newest -w newest.html > $outputfile
+        hacker-tsv.rb -H hn -p $pages -s newest -w newest.html > $outputfile
         ;;
     "ruby")
-        hacker-tsv -H rn -p $pages -s ruby -w ruby > $outputfile
+        hacker-tsv.rb -H rn -p $pages -s ruby -w ruby > $outputfile
         ;;
     "programming")
-        hacker-tsv -H rn -p $pages -s programming -w $outputhtml > $outputfile
+        hacker-tsv.rb -H rn -p $pages -s programming -w $outputhtml > $outputfile
         ;;
     *)
         hostname=${hostname:-"rn"}
-        hacker-tsv -H "$hostname" -p $pages -s "$subr" -w $outputhtml > $outputfile
+        hacker-tsv.rb -H "$hostname" -p $pages -s "$subr" -w $outputhtml > $outputfile
         ;;
 esac
 ls -ltrh $outputfile
