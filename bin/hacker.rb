@@ -1,13 +1,13 @@
 #!/usr/bin/env ruby -w
 
-if __FILE__ == $0
+if true
   begin
     pages = 1
     outputfile = nil
     hostname = nil
     # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
     require 'optparse'
-    options = {}
+    #options = {}
     OptionParser.new do |opts|
       opts.banner = "Usage: #{$0} [options]"
 
