@@ -58,10 +58,11 @@ module HackerCurse
         e = li.css("span.buttons > a")
         if !e.empty?
           e = e.first
-          h[:comment_count] = e.text.to_i
+          #h[:comment_count] = e.text.to_i
+          h[:comment_count] = e.text.to_i.to_s.rjust(4)
           h[:comments_url] = e["href"]
         else
-          h[:comment_count] = 0
+          h[:comment_count] = "   0"
           h[:comments_url] = ""
         end
         byline =  li.css("p.byline").text
@@ -69,10 +70,11 @@ module HackerCurse
         parts = byline.split("|")
         points = parts[0].strip
         age = parts.last.split("by").first.strip
-        h[:age_text]= age.scan(/\d+ \w/).first
+        h[:age_text]= age.scan(/\d+ \w/).first.rjust(4)
         #h[:age_text]= age
         h[:age] = human_age_to_unix(age)
-        h[:points]= points.to_i
+        #h[:points]= points.to_i
+        h[:points]= points.to_i.to_s.rjust(4)
         #puts points
         #puts age
         arr << h
