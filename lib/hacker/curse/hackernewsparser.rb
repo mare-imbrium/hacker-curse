@@ -88,7 +88,7 @@ module HackerCurse
         #$stderr.puts "head:: #{head.text}"
         m = head.text.scan(/\d+ \w+ ago/)
         if !m.empty?
-          hh[:age_text] = m.first.scan(/\d+ \w/).first
+          hh[:age_text] = m.first.scan(/\d+ \w/).first.rjust(4)
           hh[:age] = human_age_to_unix(m.first)
           head.css("a").each_with_index do |e, i|
             link = e["href"]
@@ -190,13 +190,13 @@ module HackerCurse
             #puts points
             h[:submitter] = submitter
             h[:submitter_url] = submitter_url
-            h[:comment_count] = comment.to_i
+            h[:comment_count] = comment.to_i.to_s.rjust(4)
             h[:comments_url] = comments_url
-            h[:points] = points.to_i
+            h[:points] = points.to_i.to_s.rjust(4)
             m = fulltext.scan(/\d+ \w+ ago/)
             if m
               #h[:age_text] = m.first
-              h[:age_text] = m.first.scan(/\d+ \w/).first
+              h[:age_text] = m.first.scan(/\d+ \w/).first.rjust(4)
               h[:age] = human_age_to_unix(m.first)
             end
             #puts "fulltext: #{fulltext} "
