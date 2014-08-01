@@ -1,4 +1,10 @@
 #!/usr/bin/env ruby -w
+#
+# This is just a wrapper over hacker-tsv.rb
+# If called with news or newest it calls hacker news, otherwise by default it will call
+#  reddit.com for other args. Use -H to specify host if it is hacker news.
+# It also puts the output in a TSV file.
+# Currently, corvus is calling this.
 
 if true
   begin
@@ -8,8 +14,21 @@ if true
     # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
     require 'optparse'
     #options = {}
+    prog = File.basename $0
     OptionParser.new do |opts|
-      opts.banner = "Usage: #{$0} [options]"
+      opts.banner  = %Q{ 
+      Usage: #{prog} [options] subforum
+      Examples:
+             #{prog} --pages 2 news
+             #{prog} programming
+             #{prog} programming/new
+
+        subforum can be news / newest (Hacker News)
+        or any subforum from reddit such as programming, ruby, vim, zsh, commandline, etc.
+
+        This program is a wrapper over hacker-tsv.rb and writes the output into a tab separated file
+        of the same name as the subforum, with a ".tsv" extension, such as news.tsv or ruby.tsv.
+        }
 
       opts.on("-H HN", String, "--hostname", "hostname [hn|rn]") do |v|
         hostname = v
