@@ -4,7 +4,7 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2014-07-16 - 13:10
 #      License: MIT
-#  Last update: 2014-07-28 19:37
+#  Last update: 2014-08-01 18:07
 # ----------------------------------------------------------------------------- #
 #  hacker-curse.rb  Copyright (C) 2012-2014 j kepler
 #!/usr/bin/env ruby
@@ -21,11 +21,36 @@ if true
     options = {}
     options[:num_pages] = 1
     OptionParser.new do |opts|
-      opts.banner = "Usage: #{$0} [options]"
+      opts.banner = %Q{
+ Usage: #{$0} [options]
+ Outputs stories from Hacker News front page or Reddit.com as tab separated values
 
-      opts.on("-v", "--[no-]verbose", "Print description also") do |v|
-        options[:verbose] = v
+ Examples:
+
+ Retrieves two pages of stories from Hacker News and save the retrieved HTML file
+ and redirect output to a file.
+
+     hacker-tsv.rb -H hn -p 2 -s news -w news.html > news.tsv
+
+ Retrieves one page of articles from reddit.com/r/ruby and save output in a file.
+
+     hacker-tsv.rb -H rn -s ruby > ruby.tsv
+    }
+
+      opts.separator ""
+      opts.separator "Common Options:"
+
+      opts.on("-s subforum", String,"--subforum", "Get articles from subforum such as newest") do |v|
+        options[:subforum] = v
       end
+      opts.on("-H (rn|hn)", String,"--hostname", "Get articles from HOST") do |v|
+        host = v
+      end
+      opts.on("-p N", Integer,"--pages", "Retrieve N number of pages") do |v|
+        options[:num_pages] = v
+      end
+      opts.separator ""
+      opts.separator "Specific Options:"
       opts.on("-n N", "--limit", Integer, "limit to N stories") do |v|
         options[:number] = v
       end
@@ -35,26 +60,15 @@ if true
       opts.on("-d SEP", String,"--delimiter", "Delimit columns with SEP") do |v|
         options[:delimiter] = v
       end
-      opts.on("-s subforum", String,"--subforum", "Get articles from subforum such as newest") do |v|
-        options[:subforum] = v
-        #url = "https://news.ycombinator.com/#{v}"
-        #url = "http://www.reddit.com/r/#{v}/.rss"
-      end
       opts.on("-u URL", String,"--url", "Get articles from URL/file") do |v|
         options[:url] = v
-      end
-      opts.on("-H (reddit|hn)", String,"--hostname", "Get articles from HOST") do |v|
-        host = v
-      end
-      opts.on("-p PAGES", Integer,"--pages", "Retrieve PAGES number of pages") do |v|
-        options[:num_pages] = v
-      end
-      opts.on("--save-html", "Save html to file?") do |v|
-        options[:save_html] = true
       end
       opts.on("-w PATH", String,"--save-html-path", "Save html to file PATH") do |v|
         options[:htmloutfile] = v
         options[:save_html] = true
+      end
+      opts.on("-v", "--[no-]verbose", "Print description also") do |v|
+        options[:verbose] = v
       end
     end.parse!
 
