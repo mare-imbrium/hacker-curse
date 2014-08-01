@@ -185,6 +185,20 @@ module HackerCurse
         f << YAML::dump(arr)
       end
     end
+    # after called get_next_page, one may pass its return value 
+    # to this method to convert it into an array of hashes and store it as a yml file
+    def save_page_as_yml outputfile, page
+      h = {}
+      h[:url] = page.url
+      h[:next_url] = page.next_url
+      h[:subforum] = page.subforum
+      articles = []
+      page.each do |a| articles << a.hash; end
+
+      h[:articles] = articles
+
+      to_yml outputfile, h
+    end
     # retrieves the comments for a url and stores in outputfile in YML format
     def save_comments_as_yml outputfile, url
       pages = _retrieve_comments url
