@@ -6,7 +6,7 @@
 #       Author: rkumar http://github.com/mare-imbrium/corvus/
 #         Date: 2013-02-17 - 17:48
 #      License: GPL
-#  Last update: 2014-08-01 13:53
+#  Last update: 2014-08-01 23:56
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
@@ -54,7 +54,7 @@ $bindings = {
   "`"   => "main_menu",
   "="   => "toggle_menu",
   "!"   => "command_mode",
-  "@"   => "selection_mode_toggle",
+  #"@"   => "selection_mode_toggle",
   "M-a" => "select_all",
   "M-A" => "unselect_all",
   ","   => "goto_parent_dir",
@@ -214,7 +214,7 @@ $min_index = 1 # this prevents cursor from moving into zeroth position since thi
 $min_index = 0 # this is old behavior
 $IDX.unshift(" ") if $min_index > 0
 
-$selected_files = Array.new
+#$selected_files = Array.new
 $bookmarks = {}
 $mode = nil
 $glines=%x(tput lines).to_i
@@ -284,9 +284,8 @@ $commandlist = %w[refresh file_actions view_log clear_log change_file fetch_data
 $selection_allowed = false
 $forumlist = %w[ news newest programming ruby python haskell scala java zsh commandline vim vimplugins ]
 # global
-#$help = "#{BOLD}1-9a-zA-Z#{BOLD_OFF} Select #{BOLD}/#{BOLD_OFF} Grep #{BOLD}'#{BOLD_OFF} First char  #{BOLD}M-n/p#{BOLD_OFF} Paging  #{BOLD}!#{BOLD_OFF} Command Mode  #{BOLD}@#{BOLD_OFF} Selection Mode  #{BOLD}q#{BOLD_OFF} Quit"
 
-$help = "#{BOLD}M-?#{BOLD_OFF} Help   #{BOLD}`#{BOLD_OFF} Menu   #{BOLD}!#{BOLD_OFF} Command   #{BOLD}=#{BOLD_OFF} Toggle   #{BOLD}@#{BOLD_OFF} Selection Mode  #{BOLD}Q#{BOLD_OFF} Quit "
+$help = "#{BOLD}M-?#{BOLD_OFF} Help   #{BOLD}`#{BOLD_OFF} Menu   #{BOLD}=#{BOLD_OFF} Toggle   #{BOLD}Q#{BOLD_OFF} Quit "
 
 # Ideally should have only first columns while the others are kept in array
 #  so we can get rest of data when needed
@@ -297,6 +296,9 @@ def get_data filename=nil
     $filename = filename
   end
   lines = File.open(filename, "r").read.split("\n")
+  age = compute_file_age filename
+  $forum_bgcolor = BOLD
+  $forum_bgcolor = ON_RED if age > 8
   # this should only happen if columns are in row 0
   $column_headings = lines.delete_at(0).split("\t")
   $full_data = Array.new
@@ -363,6 +365,11 @@ def run()
   filename = ARGV[0] || "news.tsv"
   $filename = filename
   config_read
+  if $bookmarks.empty?
+    $bookmarks = { :r => 'ruby', :p => 'programming', :n => 'news', :j => 'java', :c => 'commandline',
+                   :v => 'vim', :z => 'zsh', :l => 'linux', :a => 'apple', :h => 'haskell' , :s => 'scala',
+                   :u => 'rust', :y => 'python', :w => 'newest' }
+  end
   #$files = `zsh -c 'print -rl -- *(#{$sorto}#{$hidden}M)'`.split("\n")
   $files = get_data filename
   #enhance_file_list
@@ -405,10 +412,11 @@ def run()
     ## HELP LINE
     print "#{GREEN}#{$help}  #{BLUE}corvus #{VERSION}#{CLEAR} \n"
     #t = "#{$title}  #{$sta + 1} to #{fin} of #{fl}  #{$sorto} F:#{$filterstr}"
-    t = "#{$title}  #{$sta + 1} to #{fin} of #{fl} o:#{$sorto}:#{$details} "
+    t = "#{$title}#{CLEAR}  #{BOLD}#{$sta + 1} to #{fin} of #{fl} o:#{$sorto}:#{$details} "
     t = t[t.size-$gcols..-1] if t.size >= $gcols
     ## TITLE LINE
-    print "#{BOLD}#{t}#{CLEAR}\n"
+    #print "#{BOLD}#{t}#{CLEAR}\n"
+    print "#{$forum_bgcolor}#{t}#{CLEAR}\n"
     if $long_listing
       # lets see if we can print the headings
       if $column_headings
@@ -708,7 +716,7 @@ def view_article
   return unless title
   open_file title, 4
 end
-def view_comment
+def view_comments
   title = get_current_title
   return unless title
   open_file title, 5
@@ -812,11 +820,13 @@ def goto_entry_starting_with fc=nil
   $patt = "^#{fc}"
 end
 def goto_bookmark ch=nil
+  perror "No bookmarks" if $bookmarks.empty?
   unless ch
     print "Enter bookmark char: "
     ch = get_char
   end
   if ch =~ /^[0-9A-Z]$/
+    perror "GOT #{ch} "
     d = $bookmarks[ch]
     # this is if we use zfm's bookmarks which have a position
     # this way we leave the position as is, so it gets written back
@@ -833,7 +843,9 @@ def goto_bookmark ch=nil
     end
   else
     #goto_entry_starting_with ch
-    file_starting_with ch
+    #file_starting_with ch
+    forum = $bookmarks[ch.to_sym]
+    display_forum forum if forum
   end
 end
 
@@ -977,10 +989,10 @@ def print_help
   system("clear")
   puts "HELP"
   puts
-  puts "To open a file or dir press 1-9 a-z A-Z "
-  puts "Command Mode: Will prompt for a command to run on a file, after selecting using hotkey"
-  puts "Selection Mode: Each selection adds to selection list (toggles)"
-  puts "                Upon exiting mode, user is prompted for a command to run on selected files"
+  puts "To act on a title press 1-9 a-z A-Z "
+  #puts "Command Mode: Will prompt for a command to run on a file, after selecting using hotkey"
+  #puts "Selection Mode: Each selection adds to selection list (toggles)"
+  #puts "                Upon exiting mode, user is prompted for a command to run on selected files"
   puts
   ary = []
   $bindings.each_pair { |k, v| ary.push "#{k.ljust(7)}  =>  #{v}" }
@@ -990,6 +1002,7 @@ def print_help
 
 end
 def show_marks
+  return
   puts
   puts "Bookmarks: "
   $bookmarks.each_pair { |k, v| puts "#{k.ljust(7)}  =>  #{v}" }
@@ -1001,12 +1014,16 @@ end
 # MENU MAIN -- keep consistent with zfm
 def main_menu
   h = { 
+    "1" => :view_article,
+    "2" => :view_comments,
     :f => :choose_forum,
     :t => :test_choose_forum,
     :v => :view_menu,
     :r => :reload,
     :s => :sort_menu, 
     :C => :config_menu,
+    :a => :view_article,
+    :c => :view_comments,
     :x => :extras
   }
 =begin
@@ -1257,9 +1274,9 @@ def post_cd
   $sta = 0
   $cursor = $min_index
   $title = nil
-  if $selected_files.size > 0
-    $selected_files = []
-  end
+  #if $selected_files.size > 0
+    #$selected_files = []
+  #end
   $visual_block_start = nil
   $stact = 0
   screen_settings
@@ -1303,6 +1320,7 @@ end
 
 ## save dirs and files and bookmarks to a file
 def config_write
+  return
   # Putting it in a format that zfm can also read and write
   #f1 =  File.expand_path("~/.zfminfo")
   f1 =  File.expand_path(CONFIG_FILE)
