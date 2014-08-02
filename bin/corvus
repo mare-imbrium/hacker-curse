@@ -3,27 +3,20 @@
 #         File: corvus
 #  Description: navigate tab-separated output, selecting a row and issuing a command
 #
-#       Author: rkumar http://github.com/mare-imbrium/corvus/
-#         Date: 2013-02-17 - 17:48
-#      License: GPL
-#  Last update: 2014-08-01 23:56
+#       Author: jkepler  http://github.com/mare-imbrium/corvus/
+#         Date: 2014-07-30
+#      License: MIT
+#  Last update: 2014-08-02 23:40
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
+# - don't save html unless specified, also specify location for tsv's so current not cluttered.
+# - config file, save bookmarks and forumlist.
+# - shall we try out yml files since i can do a more
 #  - if i used the yml file, we could do a 'more' but with tsv i don't know more.
 #    - can add fetch date and other header details. why don't we use yml??
-#  - fix the menus tilde is useless
-#  x if more than 25 items then space the index by 2, others it goes out of alignment
-#  - if first time, then prompt for items. (if no news.tsv file)
-#    + should also have news newest programming ruby python by default, so user can select
-#      if file not existing then retrieve from net.
-# - don't save html unless specified, also soecify location for tsv's so current not cluttered.
 # - remove file stuff
 # - how to specify format for single list, and large list.
-#   looks bad right now, try putting at end of line, or on left
-# - how to specify ENTER command
-# x refresh a forum
-# x ask for a new subreddit
 # - specify open commend (such as links w3m)
 # - what of comments
 # x  multiple pages
@@ -32,7 +25,6 @@
 #    and file cannot take a slash
 # - make this into a library, so it can be called and the rest is upto the caller like App.
 # - tab or some key to go to next forum
-# - highlight today's comments
 require 'readline'
 require 'io/wait'
 # http://www.ruby-doc.org/stdlib-1.9.3/libdoc/shellwords/rdoc/Shellwords.html
@@ -46,7 +38,6 @@ require 'fileutils'
 # alias c=~/bin/corvus.rb
 # c
 VERSION="0.0.1"
-O_CONFIG=true
 CONFIG_FILE="~/.corvusinfo"
 
 $bindings = {}
@@ -280,9 +271,10 @@ $num_pages = 1
 $logger_array = Array.new
 # history of commands entered in readline for various prompts or keys
 $history = Hash.new
-$commandlist = %w[refresh file_actions view_log clear_log change_file fetch_data_from_net sort_on choose_forum]
+$commandlist = %w[refresh file_actions view_log clear_log change_file fetch_data_from_net sort_on display_forum next_forum previous_forum]
 $selection_allowed = false
 $forumlist = %w[ news newest programming ruby python haskell scala java zsh commandline vim vimplugins ]
+$cache_path = "."
 # global
 
 $help = "#{BOLD}M-?#{BOLD_OFF} Help   #{BOLD}`#{BOLD_OFF} Menu   #{BOLD}=#{BOLD_OFF} Toggle   #{BOLD}Q#{BOLD_OFF} Quit "
@@ -295,6 +287,7 @@ def get_data filename=nil
   else
     $filename = filename
   end
+  raise "File name not found #{filename} in get_data " if !File.exists?(filename)
   lines = File.open(filename, "r").read.split("\n")
   age = compute_file_age filename
   $forum_bgcolor = BOLD
@@ -302,7 +295,9 @@ def get_data filename=nil
   # this should only happen if columns are in row 0
   $column_headings = lines.delete_at(0).split("\t")
   $full_data = Array.new
-  $subforum = filename.sub(File.extname(filename),"").sub("__","/")
+  # there will be a path also at some time
+  #$subforum = filename.sub(File.extname(filename),"").sub("__","/")
+  $subforum = file_to_forum(filename)
   titles = Array.new
   lines.each_with_index do |l, ix|
     _cols = l.split("\t")
@@ -328,13 +323,21 @@ def fetch_data_from_net subforum=nil
     return
   end
 
-  filename = "#{subforum}.tsv".sub("/","__")
+  #filename = "#{subforum}.tsv".sub("/","__")
+  filename = forum_to_file subforum
   if File.exists? filename
     $files = get_data filename
     post_cd
   else
     perror "Cannot find file #{filename}. Some error has happened."
   end
+end
+def file_to_forum filename
+  forum = File.basename(filename).sub(File.extname(filename),"").sub("__","/")
+end
+def forum_to_file forum
+  file = "#{forum}.tsv".sub("/","__")
+  file = "#{$cache_path}/#{file}"
 end
 def reload
   fetch_data_from_net $subforum
@@ -363,16 +366,27 @@ def run()
   home=ENV['HOME']
   ctr=0
   filename = ARGV[0] || "news.tsv"
-  $filename = filename
   config_read
   if $bookmarks.empty?
     $bookmarks = { :r => 'ruby', :p => 'programming', :n => 'news', :j => 'java', :c => 'commandline',
                    :v => 'vim', :z => 'zsh', :l => 'linux', :a => 'apple', :h => 'haskell' , :s => 'scala',
                    :u => 'rust', :y => 'python', :w => 'newest' }
   end
-  #$files = `zsh -c 'print -rl -- *(#{$sorto}#{$hidden}M)'`.split("\n")
+
+  # unfortunately this is insisting on a file being present. It should allow use to fetch data if 
+  #  no file.
+  unless File.exists? filename
+    forum = choose_forum
+    if forum
+      # fetch data from file, or if not present then internet
+      display_forum forum
+      filename = data_cached_for forum
+    else
+      raise "Cannot continue without a forum name"
+    end
+  end
+  $filename = filename
   $files = get_data filename
-  #enhance_file_list
 
   fl=$files.size
 
@@ -618,6 +632,8 @@ def select_hint view, ch
       toggle_select f
     elsif $mode == 'COM'
       run_command f
+    elsif $mode == "forum"
+      display_forum f
     else
       open_file f
     end
@@ -825,25 +841,7 @@ def goto_bookmark ch=nil
     print "Enter bookmark char: "
     ch = get_char
   end
-  if ch =~ /^[0-9A-Z]$/
-    perror "GOT #{ch} "
-    d = $bookmarks[ch]
-    # this is if we use zfm's bookmarks which have a position
-    # this way we leave the position as is, so it gets written back
-    nextpos = nil
-    if d
-      if d.index(":")
-        ix = d.index(":")
-        nextpos = d[ix+1..-1]
-        d = d[0,ix]
-      end
-      change_dir d, nextpos
-    else
-      perror "#{ch} not a bookmark"
-    end
-  else
-    #goto_entry_starting_with ch
-    #file_starting_with ch
+  if ch =~ /^[0-9a-z]$/
     forum = $bookmarks[ch.to_sym]
     display_forum forum if forum
   end
@@ -858,6 +856,7 @@ def enter_regex
   ctr = 0
 end
 # Ask for a TSV file name to display
+# NOT USED replaced by choose_filename
 def accept_file_name
   print "Enter filename: "
   values = Dir.glob("*.tsv")
@@ -875,10 +874,13 @@ def accept_file_name
   # we still get dupes when user selects from history
   return filename
 end
+# returns a forum name (that has a file in the cache). 
+# returned file name not forum name
 def choose_filename
-  values = Dir.glob("*.tsv")
-  ch, menu_text = menu "Select a file", values
-  return menu_text
+  #values = Dir.glob("*.tsv")
+  forums = get_cached_forums
+  ch, forum = menu "Select a file", forums
+  return forum_to_file(forum)
 end
 # TODO we can c=>ose these in the ctrlp fashion so i don't have to worry about first letter
 def choose_forum_old
@@ -887,21 +889,48 @@ def choose_forum_old
   forum = menu_text
   display_forum forum if forum
 end
+# returns list of forums both cached and in forumlist
 def get_forum_list
-  values = Dir.glob("*.tsv").map{|a| a.sub(".tsv",""); }
+  # this assumes they are on the same dir
+  forums = get_cached_forums
   f = $forumlist
-  values.push(*f)
-  values = values.uniq
-  return values
+  forums.push(*f)
+  forums = forums.uniq
+  return forums
 end
-# if cached, show from cache, else fetch and show
-def display_forum forum
+# if cached, fetch data from cache, else fetch from internet
+def display_forum forum=nil
+  forum = choose_forum unless forum
+  return unless forum
+  $mode = nil
   fn = data_cached_for forum
   if fn
     change_file fn
   else
     fetch_data_from_net forum
   end
+end
+# returns a list of cached forums with slashes
+# TODO need to take care of the actual location
+def get_cached_forums
+  values = Dir.glob("*.tsv").map{|a| a.sub(".tsv","").gsub("__","/"); }
+end
+def next_forum
+  f = get_cached_forums.sort
+  curr = f.index($subforum) 
+  log "no index for #{$subforum} " unless curr
+  curr ||= 0
+  fo = curr == f.size-1 ? f.first : f[curr + 1]
+  display_forum fo
+
+end
+def previous_forum
+  f = get_cached_forums.sort
+  curr = f.index($subforum)
+  log "previous_forum: no index for #{$subforum} " unless curr
+  curr ||= f.size
+  fo = curr == 0 ? f.last : f[curr - 1]
+  display_forum fo
 end
 
 def add_to_forum_list f=nil
@@ -937,26 +966,31 @@ def remove_from_forum_list f=nil
 end
 
 # display forum list in ctrlp fashion, selection by ENTER or cancel with ESCAPE C-c
+# returns selected forum (not filename)
 def choose_forum
   values = get_forum_list
   sel = ctrlp values
-  return unless sel
-  display_forum sel
+  #return unless sel
+  #display_forum sel
+  return sel
 end
 def data_cached_for filename
-  f = "#{filename}.tsv"
+  f = "#{filename}.tsv".gsub("/","__")
+  f = "#{$cache_path}/#{f}"
   return f if File.exists? f
+  perror "No data cached for #{f} "
   return nil
 end
-def change_file fn=nil
-  if fn.nil?
+# get data for a cached file
+def change_file file=nil
+  if file.nil?
     #fn = accept_file_name
-    fn = choose_filename
-    return if fn == ""
+    file = choose_filename
+    return if file == ""
   end
-  check_file_age fn
-  $files = get_data fn
-  $filename = fn
+  check_file_age file
+  $files = get_data file
+  $filename = file
   post_cd
 end
 def compute_file_age fn
@@ -970,9 +1004,9 @@ def check_file_age fn
   age = compute_file_age fn
   log "#{fn} is #{age} hours old"
   if age > 24
-    perror "#{fn} is very old ( #{age}  hours). Please refresh"
+    pbold "#{fn} is very old ( #{age}  hours). Please refresh"
   elsif age > 8
-    perror "#{fn} is quite old ( #{age}  hours). Please refresh"
+    pbold "#{fn} is quite old ( #{age}  hours). Please refresh"
   elsif age > 1
     # display it somewhere
   end
@@ -1002,21 +1036,20 @@ def print_help
 
 end
 def show_marks
-  return
   puts
   puts "Bookmarks: "
   $bookmarks.each_pair { |k, v| puts "#{k.ljust(7)}  =>  #{v}" }
   puts
   print "Enter bookmark to goto: "
   ch = get_char
-  goto_bookmark(ch) if ch =~ /^[0-9A-Z]$/
+  goto_bookmark(ch) if ch =~ /^[0-9a-z]$/
 end
 # MENU MAIN -- keep consistent with zfm
 def main_menu
   h = { 
     "1" => :view_article,
     "2" => :view_comments,
-    :f => :choose_forum,
+    :f => :display_forum,
     :t => :test_choose_forum,
     :v => :view_menu,
     :r => :reload,
@@ -1239,17 +1272,27 @@ def extras
   end
 end
 def select_used_dirs
+  return
   $title = "Used Directories"
   $files = $used_dirs.uniq
 end
 def select_visited_files
+  return
   # not yet a unique list, needs to be unique and have latest pushed to top
   $title = "Visited Files"
   $files = $visited_files.uniq
 end
+# TODO 
+# how to deal with this. on hitting enter it gives column view
 def select_bookmarks
+  # added changes in both select_current and select_hint
+  # However, the age mark that is show is still for the earlier shown forum based on outdated full_data
+  #   So we need to show age mark based on file datw which means a change in display program !!! At least
+  #   clear the array full_data
+  $mode = "forum"
   $title = "Bookmarks"
   $files = $bookmarks.values
+
 end
 
 ## part copied and changed from change_dir since we don't dir going back on top
@@ -1340,13 +1383,13 @@ end
 
 ## accept a character to save this dir as a bookmark
 def create_bookmark
-  print "Enter A to Z or 0-9 for bookmark: "
+  print "Enter a to z or 0-9 for bookmark: "
   ch = get_char
-  if ch =~ /^[0-9A-Z]$/
-    $bookmarks[ch] = "#{Dir.pwd}:#{$cursor}"
+  if ch =~ /^[0-9a-z]$/
+    $bookmarks[ch.sym] = "#{$subforum}"
     $modified = true
   else
-    perror "Bookmark must be upper-case character or number."
+    perror "Bookmark must be lower-case character or number."
   end
 end
 # currently just send to file-actions till we think of better stuff
@@ -1392,6 +1435,8 @@ def subcommand
   Readline::HISTORY.push(*oldhist)
   return if command.nil? or command == ""
   command = "fetch_data_from_net #{$subforum}" if command == "r" #or command == "refresh"
+  command = "next_forum" if command == "n" 
+  command = "previous_forum" if command == "p" 
   if $commandlist.include? command
     send(command)
   end
@@ -1463,10 +1508,15 @@ def views
   $files = `zsh -c 'print -rl -- *(#{$sorto}#{$hidden}M)'`.split("\n")
 
 end
+# on pressing ENTER key
 def select_current
   ## vp is local there, so i can do $vp[0]
   #open_file $view[$sta] if $view[$sta]
-  open_file $view[$cursor] if $view[$cursor]
+  if $mode == "forum"
+    display_forum $view[$cursor]
+  else
+    open_file $view[$cursor] if $view[$cursor]
+  end
 end
 
 ## create a list of dirs in which some action has happened, for saving
@@ -1966,7 +2016,7 @@ def ctrlp arr
       print "#{mark}  #{a} \n"
     end
     #puts " "
-    print "\r#{curr}.#{patt} >"
+    print "\r#{patt} >"
     ch = get_char
     if  ch =~ /^[a-z]$/
       patt ||= ""
