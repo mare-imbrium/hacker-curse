@@ -189,11 +189,14 @@ module HackerCurse
     end
     # after called get_next_page, one may pass its return value 
     # to this method to convert it into an array of hashes and store it as a yml file
+    # It's a bit silly, first we break the hash down into this structure
+    #  and then deconstruct the whole thing. 
     def save_page_as_yml outputfile, page
       h = {}
       h[:url] = page.url
       h[:next_url] = page.next_url
       h[:subforum] = page.subforum
+      h[:create_date] = page.create_date
       articles = []
       page.each do |a| articles << a.hash; end
 
