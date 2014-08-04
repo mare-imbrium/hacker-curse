@@ -140,6 +140,7 @@ module HackerCurse
           count = x[0].text
           #puts count
           if x.count < 2
+            # this block is for the next_url
             article_url = x[0].css("a")[0]["href"]   # link url
             #puts article_url
             h = {}
@@ -152,6 +153,8 @@ module HackerCurse
             #puts li
           end
           break if x.count < 2
+
+          # actual article url
           title = x[1].css("a")[0].text   # title
           article_url = x[1].css("a")[0]["href"]   # link url
           #puts article_url
@@ -159,6 +162,11 @@ module HackerCurse
           h = {}
           #h[:number] = count
           h[:title] = title
+          # ask option does not have hostname since it is relative to HN
+          if article_url.index("http") != 0
+            article_url = "#{@host}/#{article_url}"
+          end
+
           h[:article_url] = article_url
           arr << h
         else 
