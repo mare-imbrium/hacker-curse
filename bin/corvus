@@ -6,7 +6,7 @@
 #       Author: jkepler  http://github.com/mare-imbrium/corvus/
 #         Date: 2014-07-30
 #      License: MIT
-#  Last update: 2014-08-02 23:40
+#  Last update: 2014-08-04 10:49
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
@@ -15,6 +15,8 @@
 # - shall we try out yml files since i can do a more
 #  - if i used the yml file, we could do a 'more' but with tsv i don't know more.
 #    - can add fetch date and other header details. why don't we use yml??
+#    - yml is better also if no data, atleast we do not bomb in funny ways
+#     with stdout coming as data
 # - remove file stuff
 # - how to specify format for single list, and large list.
 # - specify open commend (such as links w3m)
@@ -48,10 +50,10 @@ $bindings = {
   #"@"   => "selection_mode_toggle",
   "M-a" => "select_all",
   "M-A" => "unselect_all",
-  ","   => "goto_parent_dir",
   "+"   => "add_to_forum_list",
   "-"   => "remove_from_forum_list",
-  "."   => "pop_dir",
+  "<"   => "previous_forum",
+  ">"   => "next_forum",
   ":"   => "subcommand",
   "'"   => "goto_bookmark",
   "/"   => "enter_regex",
@@ -69,7 +71,7 @@ $bindings = {
   "C-i"   => "views",
   "?"   => "dirtree",
   "ENTER"   => "select_current",
-  "D"   => "delete_file",
+  "D"   => "delete_current_forum",
   "M"   => "file_actions most",
   "Q"   => "quit_command",
   "RIGHT"   => "column_next",
@@ -101,6 +103,7 @@ $kh["OP"]="F1"
 $kh["[A"]="UP"
 $kh["[5~"]="PGUP"
 $kh['']="ESCAPE"
+$kh['[Z']="BACKTAB"
 KEY_PGDN="[6~"
 KEY_PGUP="[5~"
 ## I needed to replace the O with a [ for this to work
@@ -153,7 +156,7 @@ def get_char
     #if $stdin.ready?
       c = $stdin.getc
       cn=c.ord
-      return "ENTER" if cn == 10 || cn == 13
+      return "ENTER" if cn == 13
       return "BACKSPACE" if cn == 127
       return "C-SPACE" if cn == 0
       return "SPACE" if cn == 32
@@ -207,12 +210,14 @@ $IDX.unshift(" ") if $min_index > 0
 
 #$selected_files = Array.new
 $bookmarks = {}
+$forumlist = {}
 $mode = nil
 $glines=%x(tput lines).to_i
 $gcols=%x(tput cols).to_i
 $grows = $glines - 3
 $pagesize = 60
-$gviscols = 3
+# how many columns we will try to show on one page
+$gviscols = 2
 $pagesize = $grows * $gviscols
 $stact = 0
 $editor_mode = true
@@ -266,15 +271,17 @@ $long_list_columns = [2,3,4,1]
 # sort_columns are zero-based
 $sort_columns = [2,3,6]
 $column_enum = $sort_columns.cycle
-$open_command = "open"
 $num_pages = 1
 $logger_array = Array.new
 # history of commands entered in readline for various prompts or keys
 $history = Hash.new
-$commandlist = %w[refresh file_actions view_log clear_log change_file fetch_data_from_net sort_on display_forum next_forum previous_forum]
+$commandlist = %w[refresh file_actions view_log clear_log change_file fetch_data_from_net sort_on display_forum next_forum previous_forum new_articles]
 $selection_allowed = false
-$forumlist = %w[ news newest programming ruby python haskell scala java zsh commandline vim vimplugins ]
+$def_forumlist = %w[ news newest programming ruby python haskell scala java zsh commandline vim vimplugins ]
 $cache_path = "."
+$hint_message = nil
+$hacker_forums =  %w{news newest show jobs ask}
+$hints_toggle = true
 # global
 
 $help = "#{BOLD}M-?#{BOLD_OFF} Help   #{BOLD}`#{BOLD_OFF} Menu   #{BOLD}=#{BOLD_OFF} Toggle   #{BOLD}Q#{BOLD_OFF} Quit "
@@ -289,6 +296,10 @@ def get_data filename=nil
   end
   raise "File name not found #{filename} in get_data " if !File.exists?(filename)
   lines = File.open(filename, "r").read.split("\n")
+  if lines.nil? or lines.empty?
+    perror "Failed trying to read #{filename}. Please delete if empty "
+    lines = ["no data", "no data, please refresh"]
+  end
   age = compute_file_age filename
   $forum_bgcolor = BOLD
   $forum_bgcolor = ON_RED if age > 8
@@ -298,6 +309,7 @@ def get_data filename=nil
   # there will be a path also at some time
   #$subforum = filename.sub(File.extname(filename),"").sub("__","/")
   $subforum = file_to_forum(filename)
+  $host = forum_to_host $subforum
   titles = Array.new
   lines.each_with_index do |l, ix|
     _cols = l.split("\t")
@@ -306,7 +318,7 @@ def get_data filename=nil
   end
   calc_column_widths
   size_column_headings
-  return titles
+  $files = titles
 end
 # reload from internet
 def fetch_data_from_net subforum=nil
@@ -316,6 +328,7 @@ def fetch_data_from_net subforum=nil
     return if subforum == ""
   end
   print "fetching for #{subforum} ..."
+  # put in begin rescue since sometimes no data, as for programming/rising
   retval = system("hacker.rb --pages #{$num_pages} #{subforum}")
   status = "#{$?}"
   unless retval
@@ -326,11 +339,12 @@ def fetch_data_from_net subforum=nil
   #filename = "#{subforum}.tsv".sub("/","__")
   filename = forum_to_file subforum
   if File.exists? filename
-    $files = get_data filename
+    get_data filename
     post_cd
   else
     perror "Cannot find file #{filename}. Some error has happened."
   end
+  $hint_message = nil
 end
 def file_to_forum filename
   forum = File.basename(filename).sub(File.extname(filename),"").sub("__","/")
@@ -338,6 +352,12 @@ end
 def forum_to_file forum
   file = "#{forum}.tsv".sub("/","__")
   file = "#{$cache_path}/#{file}"
+end
+def forum_to_host fo
+  if $hacker_forums.include? fo
+    return :hn
+  end
+  return :rn
 end
 def reload
   fetch_data_from_net $subforum
@@ -362,15 +382,22 @@ def size_column_headings
 end
 
 ## main loop which calls all other programs
-def run()
-  home=ENV['HOME']
+def run(options)
+  $browser_mode = options[:browser_mode] || 'text'
+  $browser_text = options[:browser_text] || 'links'
+  $browser_gui = options[:browser_gui] || 'open'
+  $cache_path = options[:cache_path] || "./"
   ctr=0
   filename = ARGV[0] || "news.tsv"
   config_read
+  $open_command = $browser_mode == 'text' ? $browser_text : $browser_gui
   if $bookmarks.empty?
     $bookmarks = { :r => 'ruby', :p => 'programming', :n => 'news', :j => 'java', :c => 'commandline',
                    :v => 'vim', :z => 'zsh', :l => 'linux', :a => 'apple', :h => 'haskell' , :s => 'scala',
                    :u => 'rust', :y => 'python', :w => 'newest' }
+  end
+  if $forumlist.empty?
+    $forumlist = $def_forumlist
   end
 
   # unfortunately this is insisting on a file being present. It should allow use to fetch data if 
@@ -386,7 +413,7 @@ def run()
     end
   end
   $filename = filename
-  $files = get_data filename
+  get_data filename
 
   fl=$files.size
 
@@ -424,7 +451,12 @@ def run()
         end
     end
     ## HELP LINE
-    print "#{GREEN}#{$help}  #{BLUE}corvus #{VERSION}#{CLEAR} \n"
+    _hint = ""
+    if $hints_toggle
+      _hint = $hint_message || get_hint
+      _hint = "#{BOLD}#{_hint}#{CLEAR}"
+    end
+    print "#{GREEN}#{$help}  #{BLUE}corvus #{VERSION}#{CLEAR} : #{_hint}\n"
     #t = "#{$title}  #{$sta + 1} to #{fin} of #{fl}  #{$sorto} F:#{$filterstr}"
     t = "#{$title}#{CLEAR}  #{BOLD}#{$sta + 1} to #{fin} of #{fl} o:#{$sorto}:#{$details} "
     t = t[t.size-$gcols..-1] if t.size >= $gcols
@@ -451,7 +483,7 @@ def run()
     #print "#{$files.size}, #{view.size} sta=#{sta} (#{patt}): "
     _mm = ""
     _mm = "[#{$mode}] " if $mode
-    print "\r#{_mm}#{$patt} >"
+    print "\r #{_mm}#{$patt} >"
     ch = get_char
     #puts
     #break if ch == "q"
@@ -474,7 +506,7 @@ def run()
         args = x
         send(binding, *args) if binding
       else
-        #perror "No binding for #{ch}"
+        log "No binding for #{ch}, #{ch.ord} "
       end
       #p ch
     end
@@ -635,7 +667,7 @@ def select_hint view, ch
     elsif $mode == "forum"
       display_forum f
     else
-      open_file f
+      on_enter f
     end
     #selectedix=ix
   end
@@ -649,13 +681,15 @@ def toggle_select f
     $selected_files.push f
   end
 end
-def get_full_row title
-  raise "no title sent to get_full_row" unless title
+# returns full row of data for given title
+def get_full_row title=nil
+  title = get_current_title unless title
   location = $files.index(title)
   raise "no location for title: #{title}" unless location
   fullrow = $full_data[location]
   return fullrow
 end
+# returns age in hours of given title
 def article_age_in_hours title
   $_time_ ||= Time.now.to_i
   fullrow = get_full_row title
@@ -764,15 +798,15 @@ def escape
   $sorto = nil
   $viewctr = 0
   $title = nil
-  $filterstr = "M"
-  visual_block_clear
+  #$filterstr = "M"
+  #visual_block_clear
   refresh
 end
 
 ## refresh listing after some change like option change, or toggle
 def refresh
-  $files = get_data
-    $filterstr ||= "M"
+  get_data
+    #$filterstr ||= "M"
     $patt=nil
     $title = nil
 end
@@ -942,6 +976,9 @@ def add_to_forum_list f=nil
   $forumlist << f unless $forumlist.include? f
   log "Added #{f} to forumlist"
 end
+def delete_current_forum
+  remove_from_forum_list $subforum
+end
 # remove from the forumlist, however if you already have tsv files on disk, then they keep getting
 #  read up.
 def remove_from_forum_list f=nil
@@ -963,6 +1000,7 @@ def remove_from_forum_list f=nil
   if fn
     system("mv #{fn} #{fn}.old")
   end
+  perror "Removed #{f} from forum list and disk"
 end
 
 # display forum list in ctrlp fashion, selection by ENTER or cancel with ESCAPE C-c
@@ -989,7 +1027,7 @@ def change_file file=nil
     return if file == ""
   end
   check_file_age file
-  $files = get_data file
+  get_data file
   $filename = file
   post_cd
 end
@@ -1009,6 +1047,10 @@ def check_file_age fn
     pbold "#{fn} is quite old ( #{age}  hours). Please refresh"
   elsif age > 1
     # display it somewhere
+  end
+  $hint_message = get_hint
+  if age > 1
+    $hint_message = "#{ON_RED}#{age} hrs old. `r to refresh.#{CLEAR}"
   end
   return age
 end
@@ -1038,7 +1080,7 @@ end
 def show_marks
   puts
   puts "Bookmarks: "
-  $bookmarks.each_pair { |k, v| puts "#{k.ljust(7)}  =>  #{v}" }
+  $bookmarks.each_pair { |k, v| puts "#{k.to_s.ljust(7)}  =>  #{v}" }
   puts
   print "Enter bookmark to goto: "
   ch = get_char
@@ -1050,9 +1092,10 @@ def main_menu
     "1" => :view_article,
     "2" => :view_comments,
     :f => :display_forum,
-    :t => :test_choose_forum,
     :v => :view_menu,
     :r => :reload,
+    :R => :reddit_options,
+    :H => :hacker_options,
     :s => :sort_menu, 
     :C => :config_menu,
     :a => :view_article,
@@ -1078,12 +1121,66 @@ def main_menu
 
   menu "Main Menu", h
 end
+def hacker_options menu_text=nil
+  h = { 
+    :n => :news,
+    :w => :newest,
+    :s => :show,
+    :j => :jobs,
+    :a => :ask
+  }
+  # TODO ask article needs host name prepended
+  # TODO jobs has no comments, check if nil
+  unless menu_text
+    ch, menu_text = menu "Hacker Options", h
+  end
+  if menu_text
+    m = menu_text.to_s
+    fetch_data_from_net m
+  end
+end
+def reddit_options menu_text=nil
+  if $hacker_forums.include? $subforum
+    perror "Reddit options invalid inside Hacker News subforum"
+    return
+  end
+  h = { 
+    :n => :new,
+    :r => :rising,
+    :c => :controversial,
+    :t => :top,
+    :h => :hot
+  }
+  unless menu_text
+    ch, menu_text = menu "Reddit Options for #{$subforum} ", h
+  end
+  if menu_text
+    if menu_text == :hot
+      fetch_data_from_net "#{$subforum}"
+    else
+      m = menu_text.to_s
+      s =  "#{$subforum}".sub(/\/.*/, '')
+      fetch_data_from_net "#{s}/#{m}"
+    end
+  end
+end
 def config_menu
   h = { 
     :i => :increase_number_of_pages,
-    :b => :set_browsers
+    :b => :set_browsers,
+    :o => :open_command
   }
-  menu "Configuration Menu", h
+  ch, menu_text = menu "Configuration Menu", h
+  case menu_text
+  when :open_command
+    print "Enter open command: "
+    str = Readline::readline('>', true)
+    if str && str != ""
+      $open_command = str
+    end
+  when :increase_number_of_pages
+    $num_pages += 1
+  end
 end
 def view_menu
   h = { 
@@ -1132,7 +1229,9 @@ end
 # todo : use hidden to hide old entries like older than a day or n hours
 def toggle_menu menu_text=nil
   unless menu_text
-    h = { :h => :toggle_hidden, :c => :toggle_case, :l => :toggle_long_list , "1" => :toggle_columns, 
+    h = { 
+      # :h => :toggle_hidden, 
+          :c => :toggle_case, :l => :toggle_long_list , "1" => :toggle_columns, 
           :g => :use_gui_browser, :t => :use_text_browser}
     ch, menu_text = menu "Toggle Menu", h
   end
@@ -1283,7 +1382,7 @@ def select_visited_files
   $files = $visited_files.uniq
 end
 # TODO 
-# how to deal with this. on hitting enter it gives column view
+# This shows bookmarks in article view but the marks are the hints not the keys themselves
 def select_bookmarks
   # added changes in both select_current and select_hint
   # However, the age mark that is show is still for the earlier shown forum based on outdated full_data
@@ -1329,23 +1428,12 @@ end
 #
 ## read dirs and files and bookmarks from file
 def config_read
-  return
-  #f =  File.expand_path("~/.zfminfo")
   f =  File.expand_path(CONFIG_FILE)
   if File.readable? f
     load f
     # maybe we should check for these existing else crash will happen.
-    $used_dirs.push(*(DIRS.split ":"))
-    $used_dirs.concat get_env_paths
-    $visited_files.push(*(FILES.split ":"))
     #$bookmarks.push(*bookmarks) if bookmarks
-    chars = ('A'..'Z').to_a
-    chars.concat( ('0'..'9').to_a )
-    chars.each do |ch|
-      if Kernel.const_defined? "BM_#{ch}"
-        $bookmarks[ch] = Kernel.const_get "BM_#{ch}"
-      end
-    end
+    log "loaded #{CONFIG_FILE} "
   end
 end
 def get_env_paths
@@ -1497,7 +1585,7 @@ def views
   # switch between long list, single row and multi row
   views=[:toggle_columns , :toggle_long_list]
   viewlabels=%w[Dirs Newest Accessed Oldest Largest Smallest Reverse Name]
-  $sorto = views[$viewctr]
+  #$sorto = views[$viewctr]
   #$title = viewlabels[$viewctr]
   $viewctr += 1
   $viewctr = 0 if $viewctr > views.size
@@ -1515,7 +1603,24 @@ def select_current
   if $mode == "forum"
     display_forum $view[$cursor]
   else
-    open_file $view[$cursor] if $view[$cursor]
+    on_enter get_current_title
+  end
+end
+def on_enter title
+  fullrow = get_full_row(title)
+  puts "#{BOLD}#{title}#{CLEAR}"
+  puts "#{fullrow[-1]}"
+  article = fullrow[4]
+  comments = fullrow[5]
+  puts " "
+  puts "a ) article    #{article}"
+  puts "c ) comments   #{comments}"
+  print "> "
+  ch = get_char
+  if ch == "a"
+    system "#{$open_command} #{article}"
+  elsif ch == "c"
+    system "#{$open_command} #{comments}"
   end
 end
 
@@ -1629,9 +1734,9 @@ end
 # I should be able to pass in new actions that are external commands
 # c-x CX cx 
 def file_actions 
-  h = { :r => :reload, :n => :new_forum, :c => :change_subforum, :N => :new_articles , :p => :pages, 
-        :o => :open_command,
+  h = { :r => :reload, :n => :new_forum, :c => :change_subforum, :N => :new_articles , 
         :l => :view_log,
+        :C  => :config_menu,
         :Q => :quit_app}
 
   ch, menu_text = menu "Forum Menu ", h
@@ -1643,7 +1748,7 @@ def file_actions
   when :pages
     $num_pages += 1
   when :new_articles
-    fetch_data_from_net "#{$subforum}/new"
+    new_articles
   when :new_forum
     fetch_data_from_net
   when :change_subforum
@@ -1658,6 +1763,14 @@ def file_actions
     if str && str != ""
       $open_command = str
     end
+  end
+end
+def new_articles
+  case $host
+  when :hn
+    fetch_data_from_net "newest"
+  else
+    fetch_data_from_net "#{$subforum}/new"
   end
 end
 
@@ -2045,6 +2158,22 @@ def ctrlp arr
 
   end
 end
+def get_hint
+  if $gviscols == 2 and $view.size > 25
+    return "(Toggle) Press =1 to see single column, =l for long listing"
+  end
+  if $long_listing
+    return "(Command) To sort, press :sort_on or `s"
+  end
+  hints = [
+  "(Tilde) Press `1 for article, `2 for comments for current line",
+  "(Semicolon) Press :n for next forum, :p for previous forum",
+  "Reload current forum with `r or :r",
+  "(Command) Press : and then up arrow to see available commands",
+  "Press TAB to change the view"
+  ]
+  return hints[rand(hints.size)] || hints.last
+end
 
 # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
 require 'optparse'
@@ -2052,39 +2181,36 @@ options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: #{$0} [options]"
 
-  opts.on("-v", "--[no-]verbose", "Print description also") do |v|
-    options[:verbose] = v
+  #opts.on("-v", "--[no-]verbose", "Print description also") do |v|
+    #options[:verbose] = v
+  #end
+  #opts.on("-n N", "--limit", Integer, "limit to N stories") do |v|
+    #options[:number] = v
+  #end
+  #opts.on("-u URL", String,"--url", "Get articles from URL/file") do |v|
+    #options[:url] = v
+  #end
+  #opts.on("-H (reddit|hn)", String,"--hostname", "Get articles from HOST") do |v|
+    #host = v
+  #end
+  #opts.on("--save-html", "Save html to file?") do |v|
+    #options[:save_html] = true
+  #end
+  #opts.on("-w PATH", String,"--save-html-path", "Save html to file PATH") do |v|
+    #options[:htmloutfile] = v
+    #options[:save_html] = true
+  #end
+  opts.on("-m MODE", String,"--mode", "Use 'text' or 'gui' browser") do |v|
+    options[:browser_mode] = v
   end
-  opts.on("-n N", "--limit", Integer, "limit to N stories") do |v|
-    options[:number] = v
+  opts.on("-t browser", String,"--text", "browser for text mode") do |v|
+    options[:browser_text] = v
   end
-  opts.on("-t", "print only titles") do |v|
-    options[:titles] = true
+  opts.on("-g browser", String,"--gui", "browser for gui mode") do |v|
+    options[:browser_gui] = v
   end
-  opts.on("-d SEP", String,"--delimiter", "Delimit columns with SEP") do |v|
-    options[:delimiter] = v
-  end
-  opts.on("-s subforum", String,"--subforum", "Get articles from subforum such as newest") do |v|
-    options[:subforum] = v
-    #url = "https://news.ycombinator.com/#{v}"
-    #url = "http://www.reddit.com/r/#{v}/.rss"
-  end
-  opts.on("-u URL", String,"--url", "Get articles from URL/file") do |v|
-    options[:url] = v
-  end
-  opts.on("-H (reddit|hn)", String,"--hostname", "Get articles from HOST") do |v|
-    host = v
-  end
-  opts.on("--save-html", "Save html to file?") do |v|
-    options[:save_html] = true
-  end
-  opts.on("-w PATH", String,"--save-html-path", "Save html to file PATH") do |v|
-    options[:htmloutfile] = v
-    options[:save_html] = true
-  end
-  opts.on("-b COMMAND", String,"--browser", "URL opening command") do |v|
-    $open_command = v
-    options[:save_html] = true
+  opts.on("-c cache dir", String,"--cache-dir", "location to store TSV files") do |v|
+    options[:cache_path] = v
   end
 end.parse!
-run 
+run options
