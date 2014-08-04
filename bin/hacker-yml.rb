@@ -4,7 +4,7 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2014-08-05 - 01:08 
 #      License: MIT
-#  Last update: 2014-08-05 01:21
+#  Last update: 2014-08-05 01:49
 # ----------------------------------------------------------------------------- #
 #  hacker-yml.rb  Copyright (C) 2012-2014 j kepler
 #!/usr/bin/env ruby
@@ -88,7 +88,7 @@ if true
       hn = HackerNewsParser.new options
     end
 
-    outputfile ||= options[:subforum].gsub("/","__")
+    outputfile ||= options[:subforum].gsub("/","__") + ".yml"
     arr = hn.get_next_page
     hn.save_page_as_yml outputfile, arr
     if arr.articles.nil? or arr.articles.empty?
