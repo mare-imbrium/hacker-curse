@@ -62,6 +62,15 @@ Finally, the curses-based program is to be written. I am currently working on `c
 to get the functionality down, and firm up the API. Once this is over, I can start working on a ncurses
 version.
 
+p.s. I am moving corvus to use the YML output rather than the TSV files for two reasons:
+- the tab separated values file does not keep a link to next_url whereas the YML does.
+- THe YML can contain the date of retrieval of data, whereas currentl we need to check the
+modified date of the TSV file to find out how old the data is.
+- If there is any error, such as no rows, the YML file has a blank/empty articles array
+whereas the TSV file may be zero bytes and give errors which need to be trapped in various places.
+
+The TSV file should be used as a command-line filter, and not in applications or front-ends.
+
 ## Contributing
 
 1. Fork it ( https://github.com/[my-github-username]/hacker-curse/fork )
