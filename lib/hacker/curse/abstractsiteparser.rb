@@ -165,6 +165,7 @@ module HackerCurse
           pages.merge_page page
         end
         u = page.next_url
+        break unless u  # sometimes there is no next
         @more_url = u
       end
       return pages
