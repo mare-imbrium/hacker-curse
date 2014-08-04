@@ -49,7 +49,7 @@ if true
     puts "subreddit is: #{subr} "
     exec_str = nil
     case subr
-    when "news", "newest"
+    when "news", "newest", "ask", "jobs", "show"
       exec_str = "hacker-tsv.rb -H hn -p #{pages} -s #{subr} -w #{outputhtml} > #{outputfile}"
     else
       hostname ||= "rn"
