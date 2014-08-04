@@ -79,8 +79,13 @@ module HackerCurse
         #puts age
         arr << h
       end
-      next_prev_url= doc.css("p.nextprev").first.css("a").first["href"]
-      page[:next_url] = next_prev_url
+      # some cases like rising do not have next prev
+      #next_prev_url= doc.css("p.nextprev").first.css("a").first["href"]
+      next_prev_url= doc.css("p.nextprev").first
+      if next_prev_url #&& !next_prev_url.empty?
+        next_prev_url = next_prev_url.css("a").first["href"]
+        page[:next_url] = next_prev_url
+      end
       page[:articles] = arr
       #arr << { :next_prev_url => next_prev_url }
       #@more_url = next_prev_url
