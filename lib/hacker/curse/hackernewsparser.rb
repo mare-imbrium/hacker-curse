@@ -113,6 +113,7 @@ module HackerCurse
       p = ForumPage.new
       p.url = h[:url]
       p.next_url = h[:next_url]
+      p.create_date = h[:create_date]
       art = h[:articles]
       arts = []
       art.each do |a|
@@ -129,6 +130,9 @@ module HackerCurse
       count = 0
       page = {}
       page[:url] = url
+      now = Time.now
+      page[:create_date_seconds] = now.to_i
+      page[:create_date] = now
 
       arr = Array.new
       h = {}
