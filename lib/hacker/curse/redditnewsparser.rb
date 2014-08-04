@@ -33,6 +33,9 @@ module HackerCurse
       arr = Array.new
       doc  = get_doc_for_url url
       page[:url] = url
+      now = Time.now
+      page[:create_date_seconds] = now.to_i
+      page[:create_date] = now
       #filename = "r.#{subr}.yml"
       links = doc.css("li div.link")
       links.each do |li|
@@ -96,6 +99,8 @@ module HackerCurse
       p = ForumPage.new
       p.url = h[:url]
       p.next_url = h[:next_url]
+      p.create_date = h[:create_date]
+      #p.create_date_seconds = h[:create_date_seconds]
       art = h[:articles]
       arts = []
       art.each do |a|
