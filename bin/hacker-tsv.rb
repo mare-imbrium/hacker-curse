@@ -4,7 +4,7 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2014-07-16 - 13:10
 #      License: MIT
-#  Last update: 2014-08-01 18:07
+#  Last update: 2014-08-03 20:17
 # ----------------------------------------------------------------------------- #
 #  hacker-curse.rb  Copyright (C) 2012-2014 j kepler
 #!/usr/bin/env ruby
@@ -86,6 +86,11 @@ if true
     end
 
     arr = hn.get_next_page
+    if arr.articles.nil? or arr.articles.empty?
+      $stderr.puts "No articles"
+      exit
+    end
+    # arr is ForumPage, arr.first is ForumAricle
     titles_only = options[:titles]
     sep = options[:delimiter] || "\t"
     limit = options[:number] || arr.count
