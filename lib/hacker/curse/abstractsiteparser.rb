@@ -17,6 +17,7 @@ module HackerCurse
     # new newest hot rising etc
     attr_accessor :url
     attr_accessor :next_url
+    attr_accessor :create_date
     attr_accessor :subforum
     # array of article objects
     attr_accessor :articles
