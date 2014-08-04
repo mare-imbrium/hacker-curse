@@ -16,7 +16,7 @@ module HackerCurse
       raise "url should be string" unless url.is_a? String
       arr = to_hash url
       page = hash_to_class arr
-      to_yml "#{@subforum}.yml", arr
+      to_yml "#{@subforum}OLD.yml", arr
       return page
     end
     # reddit
@@ -36,6 +36,7 @@ module HackerCurse
       now = Time.now
       page[:create_date_seconds] = now.to_i
       page[:create_date] = now
+      page[:subforum] = @subforum
       #filename = "r.#{subr}.yml"
       links = doc.css("li div.link")
       links.each do |li|
@@ -100,6 +101,7 @@ module HackerCurse
       p.url = h[:url]
       p.next_url = h[:next_url]
       p.create_date = h[:create_date]
+      p.subforum = h[:subforum]
       #p.create_date_seconds = h[:create_date_seconds]
       art = h[:articles]
       arts = []
