@@ -12,11 +12,11 @@ module HackerCurse
       super config
     end
     def _retrieve_page url
-      #puts "got url #{url} "
+      $stderr.puts "_retrieve_page got url #{url} "
       raise "url should be string" unless url.is_a? String
       arr = to_hash url
       page = hash_to_class arr
-      to_yml "#{@subforum}OLD.yml", arr
+      #to_yml "#{@subforum}OLD.yml", arr
       return page
     end
     # reddit
