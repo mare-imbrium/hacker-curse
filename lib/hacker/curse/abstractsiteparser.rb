@@ -180,9 +180,10 @@ module HackerCurse
     #  This should be called with final class
     def to_yml outfile, arr = @arr
       require 'yaml'
-      if outfile.index("/")
-        outfile = outfile.gsub("/","__")
-      end
+      # cannot just convert / to __ in filename since path gets converted too
+      #if outfile.index("/")
+        #outfile = outfile.gsub("/","__")
+      #end
       File.open(outfile, 'w' ) do |f|
         f << YAML::dump(arr)
       end
