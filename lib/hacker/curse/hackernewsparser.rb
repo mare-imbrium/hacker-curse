@@ -16,7 +16,7 @@ module HackerCurse
       raise "url should be string" unless url.is_a? String
       arr = to_hash url
       page = hash_to_class arr
-      to_yml "#{@subforum}.yml", arr
+      #to_yml "#{@subforum}.yml", arr
       return page
     end
     # currently returns a Hash. containing various entries relating to the main article
