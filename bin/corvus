@@ -6,7 +6,7 @@
 #       Author: jkepler  http://github.com/mare-imbrium/corvus/
 #         Date: 2014-07-30
 #      License: MIT
-#  Last update: 2014-08-04 10:49
+#  Last update: 2014-08-06 01:56
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
@@ -32,6 +32,7 @@ require 'io/wait'
 # http://www.ruby-doc.org/stdlib-1.9.3/libdoc/shellwords/rdoc/Shellwords.html
 require 'shellwords'
 require 'fileutils'
+require 'yaml'
 # -- requires 1.9.3 for io/wait
 # -- cannot do with Highline since we need a timeout on wait, not sure if HL can do that
 
@@ -39,7 +40,7 @@ require 'fileutils'
 # copy into PATH
 # alias c=~/bin/corvus.rb
 # c
-VERSION="0.0.1"
+VERSION="0.0.2"
 CONFIG_FILE="~/.corvusinfo"
 
 $bindings = {}
@@ -282,6 +283,7 @@ $cache_path = "."
 $hint_message = nil
 $hacker_forums =  %w{news newest show jobs ask}
 $hints_toggle = true
+$yaml_obj = nil
 # global
 
 $help = "#{BOLD}M-?#{BOLD_OFF} Help   #{BOLD}`#{BOLD_OFF} Menu   #{BOLD}=#{BOLD_OFF} Toggle   #{BOLD}Q#{BOLD_OFF} Quit "
@@ -289,6 +291,59 @@ $help = "#{BOLD}M-?#{BOLD_OFF} Help   #{BOLD}`#{BOLD_OFF} Menu   #{BOLD}=#{BOLD_
 # Ideally should have only first columns while the others are kept in array
 #  so we can get rest of data when needed
 def get_data filename=nil
+  unless filename
+    filename = $filename
+  else
+    $filename = filename
+  end
+  raise "File name not found #{filename} in get_data " if !File.exists?(filename)
+  #lines = File.open(filename, "r").read.split("\n")
+  #if lines.nil? or lines.empty?
+    #perror "Failed trying to read #{filename}. Please delete if empty "
+    #lines = ["no data", "no data, please refresh"]
+  #end
+  obj = YAML::load( File.open( filename ) )
+  $yaml_obj = obj
+  age = compute_file_age filename
+  articles = obj[:articles]
+  if articles.empty?
+    # this happens when doing More with a stale url
+    perror "No articles in this file. Please delete file."
+    return
+  end
+  colh = articles.first.keys
+  colh = [:title	,:age_text	,:comment_count	,:points	,:article_url	,:comments_url	,:age	,:submitter	,:submitter_url	,:byline]
+  $forum_bgcolor = BOLD
+  $forum_bgcolor = ON_RED if age > 8
+  # this should only happen if columns are in row 0
+  # # FIXME
+  $column_headings = colh
+  $full_data = Array.new
+  # there will be a path also at some time
+  #$subforum = filename.sub(File.extname(filename),"").sub("__","/")
+  $subforum = file_to_forum(filename)
+  $host = forum_to_host $subforum
+  titles = Array.new
+  articles.each do |a|
+    titles << a[:title]
+    _cols = []
+    $column_headings.each do |c|
+      _cols << a[c] 
+    end
+    $full_data << _cols
+  end
+  perror "No data for #{filename} " if $full_data.empty?
+  raise "No data for #{filename} " if $full_data.empty?
+  #lines.each_with_index do |l, ix|
+    #_cols = l.split("\t")
+    #titles << _cols.first
+    #$full_data << _cols
+  #end
+  calc_column_widths
+  size_column_headings
+  $files = titles
+end
+def TSV_get_data filename=nil # {{{
   unless filename
     filename = $filename
   else
@@ -319,25 +374,31 @@ def get_data filename=nil
   calc_column_widths
   size_column_headings
   $files = titles
-end
+end # }}}
 # reload from internet
-def fetch_data_from_net subforum=nil
+def fetch_data_from_net subforum=nil, more_url=nil
   unless subforum
     print "Enter name of subforum: "
     subforum = Readline::readline('>', true)
     return if subforum == ""
   end
-  print "fetching for #{subforum} ..."
+  filename = forum_to_file subforum
+  print "fetching for #{subforum} ... saving to #{filename}\n"
+  m = nil
+  if more_url
+    m = "-u #{more_url} "
+    m = "-u '" + more_url + "'"
+  end
+  puts "hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}"
   # put in begin rescue since sometimes no data, as for programming/rising
-  retval = system("hacker.rb --pages #{$num_pages} #{subforum}")
+  #retval = system("hacker.rb --pages #{$num_pages} #{subforum}")
+  retval = system("hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}")
   status = "#{$?}"
   unless retval
     perror "Error occured in hacker.rb. status is #{status}"
     return
   end
 
-  #filename = "#{subforum}.tsv".sub("/","__")
-  filename = forum_to_file subforum
   if File.exists? filename
     get_data filename
     post_cd
@@ -346,11 +407,19 @@ def fetch_data_from_net subforum=nil
   end
   $hint_message = nil
 end
+# this allows us to fetch more items using the NEXT url
+# However, when we read up later, this file will contain a stale next url
+# as well as stale date. We should have avoided stale data.
+def fetch_more
+  more_url = $yaml_obj[:next_url]
+  #perror "more url is #{more_url} "
+  fetch_data_from_net $subforum, more_url
+end
 def file_to_forum filename
   forum = File.basename(filename).sub(File.extname(filename),"").sub("__","/")
 end
 def forum_to_file forum
-  file = "#{forum}.tsv".sub("/","__")
+  file = "#{forum}.yml".sub("/","__")
   file = "#{$cache_path}/#{file}"
 end
 def forum_to_host fo
@@ -366,9 +435,11 @@ def calc_column_widths
   $column_widths = []
   row = $full_data.first
   row.each do |r|
+    # in some cases like jobs, r may be nil
     #$column_widths << r.strip.size + 1
     # i have padded rjust the integers
-    $column_widths << r.size
+    sz = r ? r.size : 1
+    $column_widths << sz
   end
 end
 # truncate column headings to file size of column
@@ -386,9 +457,9 @@ def run(options)
   $browser_mode = options[:browser_mode] || 'text'
   $browser_text = options[:browser_text] || 'links'
   $browser_gui = options[:browser_gui] || 'open'
-  $cache_path = options[:cache_path] || "./"
+  $cache_path = options[:cache_path] || "."
   ctr=0
-  filename = ARGV[0] || "news.tsv"
+  filename = ARGV[0] || "news.yml"
   config_read
   $open_command = $browser_mode == 'text' ? $browser_text : $browser_gui
   if $bookmarks.empty?
@@ -889,9 +960,9 @@ def enter_regex
   $patt = Readline::readline('>', true)
   ctr = 0
 end
-# Ask for a TSV file name to display
+# Ask for a yml file name to display
 # NOT USED replaced by choose_filename
-def accept_file_name
+def accept_file_name # {{{
   print "Enter filename: "
   values = Dir.glob("*.tsv")
   values.each do |e|
@@ -907,11 +978,10 @@ def accept_file_name
   Readline::HISTORY.pop if Readline::HISTORY.include? filename
   # we still get dupes when user selects from history
   return filename
-end
+end # }}}
 # returns a forum name (that has a file in the cache). 
 # returned file name not forum name
 def choose_filename
-  #values = Dir.glob("*.tsv")
   forums = get_cached_forums
   ch, forum = menu "Select a file", forums
   return forum_to_file(forum)
@@ -947,7 +1017,8 @@ end
 # returns a list of cached forums with slashes
 # TODO need to take care of the actual location
 def get_cached_forums
-  values = Dir.glob("*.tsv").map{|a| a.sub(".tsv","").gsub("__","/"); }
+  #values = Dir.glob("*.yml").map{|a| a.sub(".yml","").gsub("__","/"); }
+  values = Dir.entries($cache_path).grep(/\.yml$/).map{|a| a.sub(".yml","").gsub("__","/"); }
 end
 def next_forum
   f = get_cached_forums.sort
@@ -979,7 +1050,7 @@ end
 def delete_current_forum
   remove_from_forum_list $subforum
 end
-# remove from the forumlist, however if you already have tsv files on disk, then they keep getting
+# remove from the forumlist, however if you already have yml files on disk, then they keep getting
 #  read up.
 def remove_from_forum_list f=nil
   unless f
@@ -1013,7 +1084,7 @@ def choose_forum
   return sel
 end
 def data_cached_for filename
-  f = "#{filename}.tsv".gsub("/","__")
+  f = "#{filename}.yml".gsub("/","__")
   f = "#{$cache_path}/#{f}"
   return f if File.exists? f
   perror "No data cached for #{f} "
@@ -1094,6 +1165,7 @@ def main_menu
     :f => :display_forum,
     :v => :view_menu,
     :r => :reload,
+    :m => :fetch_more,
     :R => :reddit_options,
     :H => :hacker_options,
     :s => :sort_menu, 
@@ -2163,14 +2235,16 @@ def get_hint
     return "(Toggle) Press =1 to see single column, =l for long listing"
   end
   if $long_listing
-    return "(Command) To sort, press :sort_on or `s"
+    return "(Command) To sort, press :sort_on or `s (backtick s)"
   end
   hints = [
-  "(Tilde) Press `1 for article, `2 for comments for current line",
-  "(Semicolon) Press :n for next forum, :p for previous forum",
-  "Reload current forum with `r or :r",
+  "(Backtick) Press `1 for article, `2 for comments for current line",
+  "(Colon) Press :n<ENTER> for next forum, :p<ENTER> for previous forum",
+  "Reload current forum with `r or :r<ENTER>",
+  "Get more articles with `m (backtick m)",
   "(Command) Press : and then up arrow to see available commands",
-  "Press TAB to change the view"
+  "Press > for next forum, < for previous forum (less than and greater than keys)",
+  "Press TAB to cycle through views"
   ]
   return hints[rand(hints.size)] || hints.last
 end
@@ -2178,8 +2252,12 @@ end
 # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
 require 'optparse'
 options = {}
+app = File.basename $0
 OptionParser.new do |opts|
-  opts.banner = "Usage: #{$0} [options]"
+  opts.banner = %Q{
+#{app} version #{VERSION} (YML version)
+Usage: #{app} [options]
+}
 
   #opts.on("-v", "--[no-]verbose", "Print description also") do |v|
     #options[:verbose] = v
@@ -2209,7 +2287,7 @@ OptionParser.new do |opts|
   opts.on("-g browser", String,"--gui", "browser for gui mode") do |v|
     options[:browser_gui] = v
   end
-  opts.on("-c cache dir", String,"--cache-dir", "location to store TSV files") do |v|
+  opts.on("-c cache dir", String,"--cache-dir", "location to store yml files") do |v|
     options[:cache_path] = v
   end
 end.parse!
