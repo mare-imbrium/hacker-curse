@@ -3,30 +3,19 @@
 #         File: corvus
 #  Description: navigate tab-separated output, selecting a row and issuing a command
 #
-#       Author: jkepler  http://github.com/mare-imbrium/corvus/
+#       Author: jkepler  http://github.com/mare-imbrium//jkepler
 #         Date: 2014-07-30
 #      License: MIT
-#  Last update: 2014-08-06 01:56
+#  Last update: 2014-08-14 13:06
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
+#  - remove junk options like child dirs else program will crash
 # - don't save html unless specified, also specify location for tsv's so current not cluttered.
 # - config file, save bookmarks and forumlist.
-# - shall we try out yml files since i can do a more
-#  - if i used the yml file, we could do a 'more' but with tsv i don't know more.
-#    - can add fetch date and other header details. why don't we use yml??
-#    - yml is better also if no data, atleast we do not bomb in funny ways
-#     with stdout coming as data
 # - remove file stuff
 # - how to specify format for single list, and large list.
-# - specify open commend (such as links w3m)
 # - what of comments
-# x  multiple pages
-# - display aate of file, or age so we know it is outdated.
-# - in a subreddit /subr/new shows new posts - add to C-x - that is a problem since filename created
-#    and file cannot take a slash
-# - make this into a library, so it can be called and the rest is upto the caller like App.
-# - tab or some key to go to next forum
 require 'readline'
 require 'io/wait'
 # http://www.ruby-doc.org/stdlib-1.9.3/libdoc/shellwords/rdoc/Shellwords.html
@@ -70,18 +59,18 @@ $bindings = {
   "ESCAPE"   => "escape",
   "TAB"   => "views",
   "C-i"   => "views",
-  "?"   => "dirtree",
+  #"?"   => "dirtree",
   "ENTER"   => "select_current",
   "D"   => "delete_current_forum",
-  "M"   => "file_actions most",
+  #"M"   => "forum_actions most",
   "Q"   => "quit_command",
   "RIGHT"   => "column_next",
   "LEFT"   => "column_next 1",
-  "C-x"   => "file_actions",
+  "C-x"   => "forum_actions",
   "M--"   => "columns_incdec -1",
   "M-+"   => "columns_incdec 1",
-  "S"     =>  "command_file list y ls -lh",
-  "L"     =>  "command_file Page n less",
+  #"S"     =>  "command_file list y ls -lh",
+  #"L"     =>  "command_file Page n less",
   "C-d"   =>  "cursor_scroll_dn",
   "C-b"   =>  "cursor_scroll_up",
   "UP"   =>  "cursor_up",
@@ -89,11 +78,11 @@ $bindings = {
   "C-SPACE" => "visual_mode_toggle",
 
   "M-?"   => "print_help",
-  "F1"   => "print_help",
-  "F2"   => "child_dirs",
-  "F3"   => "dirtree",
-  "F4"   => "tree",
-  "S-F1"   => "dirtree",
+  "F1"   => "print_help"
+  #"F2"   => "child_dirs",
+  #"F3"   => "dirtree",
+  #"F4"   => "tree",
+  #"S-F1"   => "dirtree",
   "S-F2"   => "tree"
 
 }
@@ -276,7 +265,7 @@ $num_pages = 1
 $logger_array = Array.new
 # history of commands entered in readline for various prompts or keys
 $history = Hash.new
-$commandlist = %w[refresh file_actions view_log clear_log change_file fetch_data_from_net sort_on display_forum next_forum previous_forum new_articles]
+$commandlist = %w[refresh forum_actions view_log clear_log change_file fetch_data_from_net sort_on display_forum next_forum previous_forum new_articles]
 $selection_allowed = false
 $def_forumlist = %w[ news newest programming ruby python haskell scala java zsh commandline vim vimplugins ]
 $cache_path = "."
@@ -381,6 +370,7 @@ def fetch_data_from_net subforum=nil, more_url=nil
     print "Enter name of subforum: "
     subforum = Readline::readline('>', true)
     return if subforum == ""
+    $host = forum_to_host subforum
   end
   filename = forum_to_file subforum
   print "fetching for #{subforum} ... saving to #{filename}\n"
@@ -1071,7 +1061,7 @@ def remove_from_forum_list f=nil
   if fn
     system("mv #{fn} #{fn}.old")
   end
-  perror "Removed #{f} from forum list and disk"
+  perror "Removed #{f} from forum list and disk. Press a key."
 end
 
 # display forum list in ctrlp fashion, selection by ENTER or cancel with ESCAPE C-c
@@ -1286,8 +1276,13 @@ def menu title, h
   end
   return unless h
 
-  pbold "#{title}"
-  h.each_pair { |k, v| puts " #{k}: #{v}" }
+  kmax_length = h.keys.max_by(&:length).length
+  vmax_length = h.values.max_by(&:length).length
+  puts "#{ON_BLUE}#{title}#{CLEAR}"
+  h.each_pair { |k, v| 
+    d = get_action_desc(v) || ""
+    printf " #{BOLD}%-*s#{CLEAR}  %-*s  #{BOLD}%s#{CLEAR}\n",  kmax_length,k, vmax_length,v, d 
+  }
   ch = get_char
   binding = h[ch]
   binding = h[ch.to_sym] unless binding
@@ -1357,6 +1352,9 @@ def sort col=nil
   end
   return
 end
+def sort_age ; sort_menu :age; end
+def sort_points ; sort_menu :points; end
+def sort_comments ; sort_menu :comments; end
 def sort_menu menu_text = nil
   # next line is so user can enter on subcommand
   menu_text = menu_text.to_sym if menu_text.is_a? String
@@ -1655,17 +1653,21 @@ end
 
 def views
   # switch between long list, single row and multi row
-  views=[:toggle_columns , :toggle_long_list]
+  views=[:toggle_columns , :toggle_long_list, :sort_age, :sort_comments, :sort_points]
   viewlabels=%w[Dirs Newest Accessed Oldest Largest Smallest Reverse Name]
-  #$sorto = views[$viewctr]
+  $sorto = nil
   #$title = viewlabels[$viewctr]
   $viewctr += 1
   $viewctr = 0 if $viewctr > views.size
   option = views[$viewctr] || views.first
-  toggle_menu option
+  case option
+  when :toggle_columns, :toggle_long_list
+    toggle_menu option
+  else
+    send(option)
+  end
 
   return # 2014-07-25 - 22:43 
-  $files = `zsh -c 'print -rl -- *(#{$sorto}#{$hidden}M)'`.split("\n")
 
 end
 # on pressing ENTER key
@@ -1805,14 +1807,22 @@ end
 # currently i am only passing the action in from the list there as a key
 # I should be able to pass in new actions that are external commands
 # c-x CX cx 
-def file_actions 
-  h = { :r => :reload, :n => :new_forum, :c => :change_subforum, :N => :new_articles , 
+def forum_actions 
+  h = { :r => :reload, 
+        :n => :new_forum, 
+        :b => :display_forum, 
+        'C-b' => :change_subforum, 
+        :N => :new_articles , 
+        :k => :delete_current_forum,
+        :RIGHT => :next_forum,
+        :LEFT => :previous_forum,
         :l => :view_log,
         :C  => :config_menu,
-        :Q => :quit_app}
+        'C-c' => :quit_app}
 
   ch, menu_text = menu "Forum Menu ", h
   menu_text = :quit if ch == "q"
+  return unless menu_text
   case menu_text.to_sym
   when :quit
   when :reload
@@ -2247,6 +2257,22 @@ def get_hint
   "Press TAB to cycle through views"
   ]
   return hints[rand(hints.size)] || hints.last
+end
+def get_action_desc action
+  h = { :reload => "Reload latest articles for this forum", 
+        :new_forum => "Get articles for a new forum", 
+        :display_forum => "List forums and select one", 
+        :change_subforum => "List forums and select one", 
+        :new_articles  => "Get latest articles from reddit /new option", 
+        :view_menu  => "View options: articles, comments, log", 
+        :reddit_options  => "New, rising, controversial, top for this forum", 
+        :hacker_options  => "Newest, show, ask, jobs",
+        :fetch_more  => "Fetch another page for this forum",
+        :delete_current_forum => "Remove forum from your list",
+        :next_forum => "Cycle through selected forums",
+        :previous_forum => "Cycle through selected forums"
+  }
+  return h[action] 
 end
 
 # http://www.ruby-doc.org/stdlib/libdoc/optparse/rdoc/classes/OptionParser.html
