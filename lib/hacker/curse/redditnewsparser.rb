@@ -74,9 +74,9 @@ module HackerCurse
         parts = byline.split("|")
         points = parts[0].strip
         age = parts.last.split("by").first.strip
-        h[:age_text]= age.scan(/\d+ \w/).first.rjust(4)
+        h[:age_text]= age.scan(/\d+ \w/).first.rjust(4) if age
         #h[:age_text]= age
-        h[:age] = human_age_to_unix(age)
+        h[:age] = human_age_to_unix(age) if age
         #h[:points]= points.to_i
         h[:points]= points.to_i.to_s.rjust(4)
         #puts points
