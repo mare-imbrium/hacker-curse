@@ -6,7 +6,7 @@
 #       Author: jkepler  http://github.com/mare-imbrium//jkepler
 #         Date: 2014-07-30
 #      License: MIT
-#  Last update: 2014-08-14 13:06
+#  Last update: 2014-08-14 13:19
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
@@ -83,7 +83,7 @@ $bindings = {
   #"F3"   => "dirtree",
   #"F4"   => "tree",
   #"S-F1"   => "dirtree",
-  "S-F2"   => "tree"
+  #"S-F2"   => "tree"
 
 }
 
