@@ -71,6 +71,7 @@ module HackerCurse
         end
         byline =  li.css("p.byline").text
         h[:byline] = byline
+        # 2014-08-14 - 13:34 in some cases the byline just says "17 minutes ago" with no BAR or "by"
         parts = byline.split("|")
         points = parts[0].strip
         age = parts.last.split("by").first.strip
