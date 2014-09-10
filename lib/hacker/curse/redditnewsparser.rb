@@ -75,6 +75,11 @@ module HackerCurse
         parts = byline.split("|")
         points = parts[0].strip
         age = parts.last.split("by").first.strip
+        if age
+          if age.scan(/\d+ \w/).first.nil?
+            alert "Nil in age: #{age} , parts = #{parts}"
+          end
+        end
         h[:age_text]= age.scan(/\d+ \w/).first.rjust(4) if age
         #h[:age_text]= age
         h[:age] = human_age_to_unix(age) if age
