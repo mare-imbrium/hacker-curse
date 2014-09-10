@@ -6,7 +6,7 @@
 #       Author: jkepler  http://github.com/mare-imbrium//jkepler
 #         Date: 2014-07-30
 #      License: MIT
-#  Last update: 2014-08-14 13:19
+#  Last update: 2014-09-10 12:29
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
@@ -32,7 +32,6 @@ require 'yaml'
 VERSION="0.0.2"
 CONFIG_FILE="~/.corvusinfo"
 
-$bindings = {}
 $bindings = {
   "`"   => "main_menu",
   "="   => "toggle_menu",
@@ -78,8 +77,8 @@ $bindings = {
   "C-SPACE" => "visual_mode_toggle",
 
   "M-?"   => "print_help",
-  "F1"   => "print_help"
-  #"F2"   => "child_dirs",
+  "F1"   => "print_help",
+  "F2"   => "display_forum"
   #"F3"   => "dirtree",
   #"F4"   => "tree",
   #"S-F1"   => "dirtree",
@@ -382,10 +381,10 @@ def fetch_data_from_net subforum=nil, more_url=nil
   puts "hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}"
   # put in begin rescue since sometimes no data, as for programming/rising
   #retval = system("hacker.rb --pages #{$num_pages} #{subforum}")
-  retval = system("hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}")
+  retval = system("hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -w delete.html -y #{filename} #{m}")
   status = "#{$?}"
   unless retval
-    perror "Error occured in hacker.rb. status is #{status}"
+    perror "Error occured in hacker-yml.rb. status is #{status}"
     return
   end
 
@@ -445,7 +444,7 @@ end
 ## main loop which calls all other programs
 def run(options)
   $browser_mode = options[:browser_mode] || 'text'
-  $browser_text = options[:browser_text] || 'links'
+  $browser_text = options[:browser_text] || 'elinks'
   $browser_gui = options[:browser_gui] || 'open'
   $cache_path = options[:cache_path] || "."
   ctr=0
@@ -1008,7 +1007,8 @@ end
 # TODO need to take care of the actual location
 def get_cached_forums
   #values = Dir.glob("*.yml").map{|a| a.sub(".yml","").gsub("__","/"); }
-  values = Dir.entries($cache_path).grep(/\.yml$/).map{|a| a.sub(".yml","").gsub("__","/"); }
+  cp = File.expand_path $cache_path
+  values = Dir.entries(cp).grep(/\.yml$/).map{|a| a.sub(".yml","").gsub("__","/"); }
 end
 def next_forum
   f = get_cached_forums.sort
@@ -2253,7 +2253,7 @@ def get_hint
   "Reload current forum with `r or :r<ENTER>",
   "Get more articles with `m (backtick m)",
   "(Command) Press : and then up arrow to see available commands",
-  "Press > for next forum, < for previous forum (less than and greater than keys)",
+  "Press > and < to go to next and prev forums.",
   "Press TAB to cycle through views"
   ]
   return hints[rand(hints.size)] || hints.last
