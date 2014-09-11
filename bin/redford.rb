@@ -5,7 +5,7 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2014-09-09 - 12:35
 #      License: MIT
-#  Last update: 2014-09-10 22:15
+#  Last update: 2014-09-11 12:57
 # ----------------------------------------------------------------------------- #
 #  redford.rb  Copyright (C) 2014 j kepler
 # encoding: utf-8
@@ -585,7 +585,7 @@ module HackerCurse
           sw.print "Fetching #{forum} ..."
           #system("hackercli.rb -y #{file} #{forum}")
           #retval = system("hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}")
-          command = "hacker-yml.rb --pages #{@num_pages} -H #{host} -s #{forum} -w del.html -y #{file} #{m}"
+          command = "hacker-yml.rb --pages #{@num_pages} -H #{host} -s #{forum} -y #{file} #{m}"
           #o,e,s = Open3.capture3("hackercli.rb -y #{file} #{forum}")
           o,e,s = Open3.capture3(command)
           unless s.success?
