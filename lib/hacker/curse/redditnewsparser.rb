@@ -72,12 +72,27 @@ module HackerCurse
         byline =  li.css("p.byline").text
         h[:byline] = byline
         # 2014-08-14 - 13:34 in some cases the byline just says "17 minutes ago" with no BAR or "by"
+        # In one case in 'science' the name itself had BARs to the parse failed
+        # In another case there was no comments, so parts[2] was nil !!
         parts = byline.split("|")
-        points = parts[0].strip
-        age = parts.last.split("by").first.strip
+        age = points = nil
+        parts.each do |ppp|
+          if ppp.index("points")
+            points = ppp.strip
+          elsif ppp.index("comments")
+            # we've taken it already
+          elsif ppp.index(" ago ")
+            age = ppp.split("by").first.strip
+          end
+        end
+
+
+        #age = parts.last.split("by").first.strip
+
+        #age = parts[2].split("by").first.strip
         if age
           if age.scan(/\d+ \w/).first.nil?
-            alert "Nil in age: #{age} , parts = #{parts}"
+            raise "Nil in age: #{age} , parts = #{parts}"
           end
         end
         h[:age_text]= age.scan(/\d+ \w/).first.rjust(4) if age
