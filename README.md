@@ -1,6 +1,18 @@
 # Hacker  Curse
 
 View Hacker News and Reddit.com pages from within your terminal.
+This gem contains several programs/ utilities:
+-  a library to parse HN and reddit subforums
+- a program/wrapper that uses the above to generate a tab seperated output (TSV) that may be further used
+  as a filter
+- a program/wrapper that uses the library to generate a YML file that can be used by client programs
+- an interactive utility named `redford` that displays stories/articles on the screen (using ncurses)
+- an interactive utility named `corvus` that displays stories/articles on the screen (using ruby but not ncurses).
+  `corvus` was used as a prototype for `redford` but may still be used if you are not interested in using
+  a curses version.
+
+The ncurses version is also based on `hackman` which is a ncurses frontend to view RSS feeds from HN, reddit,
+ars, slashdot.
 
 ## Installation
 
@@ -24,8 +36,6 @@ structure so that a single program can render output from both sources.
          print c.age_text, c.points, c.submitter, "\n"
          print c.comment_text
       end
-
-
 
 
 
@@ -53,23 +63,22 @@ It can guess the host based on the argument.
      hacker.rb programming
      hacker.rb --pages 2 ruby
 
-`corvus` is an interactive program (non-ncurses) that uses the above generated TSV files, and displays a selectable list
+`corvus` is an interactive program (non-ncurses) that uses the generated YML files, and displays a selectable list
 of stories which a user may navigate, select and launch the article (or comments) in a gui or text browser.
 User may switch between forums, reload the file, view the articles in a long list or short list, single or
 multiple columns etc. `corvus` requires at least ruby 1.9.3 in order to get single characters.
 
-Finally, the curses-based program is to be written. I am currently working on `corvus` which allows me
-to get the functionality down, and firm up the API. Once this is over, I can start working on a ncurses
-version.
+NOTE: The TSV file should be used as a command-line filter, and not in applications or front-ends. Use the YML file for frontends.
 
-p.s. I am moving corvus to use the YML output rather than the TSV files for two reasons:
-- the tab separated values file does not keep a link to next_url whereas the YML does.
-- THe YML can contain the date of retrieval of data, whereas currentl we need to check the
-modified date of the TSV file to find out how old the data is.
-- If there is any error, such as no rows, the YML file has a blank/empty articles array
-whereas the TSV file may be zero bytes and give errors which need to be trapped in various places.
+The YML wrapper has been called as:
 
-The TSV file should be used as a command-line filter, and not in applications or front-ends.
+     hacker-yml.rb --pages 1 -H rn -s ruby -y ~/tmp/hacker-curse/ruby.yml
+
+The host is "rn" or "hn" (for reddit or hacker news), the subforum is ruby (can be programming or python or java, etc),
+and the YML file location is also given.
+
+`redford.rb` can use configuration from a file named `~/.redford.yml`.  A sample file named `redford.yml` is in the root folder of this gem.
+
 
 ## Contributing
 
