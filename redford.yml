@@ -1,0 +1,67 @@
+---
+:binding:
+  '`': main_menu
+  =: toggle_menu
+  '>': next_forum
+  <: prev_forum
+  z: goto_article
+  o: display_links
+  <C-k>: display_links
+  <CR>: display_links
+  <F2>: choose_forum
+  <F3>: view_properties_as_tree
+:forumlist:
+- hacker
+- ruby
+- programming
+- scifi
+- science
+- commandline
+- vimplugins
+- vim
+- haskell
+- java
+- scala
+- cpp
+- c_programming
+- d_language
+- golang
+- emacs
+- unix
+- linux
+- bash
+- zsh
+- python
+:browser_gui: open
+:browser_text: elinks
+:cache_path: ~/tmp/hacker-curse
+:color_schemes:
+  deep blue: &1
+    :header_bg: 20
+    :menu_bg: 19
+    :body_bg: 17
+    :status_bg: 18
+    :body_fg: :white
+    :body_detail: :green
+  medium blue:
+    :header_bg: 17
+    :menu_bg: 19
+    :body_bg: 18
+    :status_bg: 20
+    :body_fg: :white
+    :body_detail: :green
+  black body:
+    :header_bg: 236
+    :menu_bg: 236
+    :body_bg: 0
+    :status_bg: 232
+    :body_fg: :white
+    :body_detail: :green
+  grey body:
+    :header_bg: 236
+    :menu_bg: 236
+    :body_bg: 244
+    :status_bg: 250
+    :body_fg: :black
+    :body_detail: :green
+:color_scheme: *1
