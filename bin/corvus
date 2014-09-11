@@ -6,7 +6,7 @@
 #       Author: jkepler  http://github.com/mare-imbrium//jkepler
 #         Date: 2014-07-30
 #      License: MIT
-#  Last update: 2014-09-10 12:29
+#  Last update: 2014-09-11 12:56
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
@@ -381,7 +381,7 @@ def fetch_data_from_net subforum=nil, more_url=nil
   puts "hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}"
   # put in begin rescue since sometimes no data, as for programming/rising
   #retval = system("hacker.rb --pages #{$num_pages} #{subforum}")
-  retval = system("hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -w delete.html -y #{filename} #{m}")
+  retval = system("hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}")
   status = "#{$?}"
   unless retval
     perror "Error occured in hacker-yml.rb. status is #{status}"
