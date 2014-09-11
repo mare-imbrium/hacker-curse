@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.version       = Hacker::Curse::VERSION
   spec.authors       = ["kepler"]
   spec.email         = ["githubkepler.50s@gishpuppy.com"]
-  spec.summary       = %q{View hacker news and comments on terminal using ncurses}
-  spec.description   = %q{View Hacker News and comments on terminal using ncurses}
+  spec.summary       = %q{View hacker news and reddit articles on terminal using ncurses}
+  spec.description   = %q{View Hacker News and reddit articles on terminal using ncurses}
   spec.homepage      = "https://github.com/mare-imbrium/hacker-curse"
   spec.license       = "MIT"
 
