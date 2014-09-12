@@ -5,7 +5,7 @@
 #       Author: j kepler  http://github.com/mare-imbrium/canis/
 #         Date: 2014-09-09 - 12:35
 #      License: MIT
-#  Last update: 2014-09-11 12:57
+#  Last update: 2014-09-12 20:12
 # ----------------------------------------------------------------------------- #
 #  redford.rb  Copyright (C) 2014 j kepler
 # encoding: utf-8
@@ -47,7 +47,7 @@ module HackerCurse
       @long_listing = true
 
       @fg = :white
-      @_forumlist = %w{ news newest ruby programming scifi science haskell java scala cpp c_programming d_language golang vim emacs unix linux bash zsh commandline vimplugins python ars slashdot }
+      @_forumlist = %w{ news newest ruby programming scifi science haskell java scala cpp c_programming d_language golang vim emacs unix linux bash zsh commandline vimplugins python }
       @browser_mode = options[:browser_mode] || 'text'
       @browser_text = options[:browser_text] || 'elinks'
       @browser_gui = options[:browser_gui] || 'open'
@@ -60,7 +60,6 @@ module HackerCurse
       @color_scheme = @color_schemes.values.first
       @forumlist ||= (options[:list] || @_forumlist)
       handle_keys @binding
-      #form_bind @binding
       @cache_path = File.expand_path(@cache_path)
     end
     def config_read config_file=nil
@@ -216,6 +215,9 @@ module HackerCurse
         ch = ch.strip[0]
       end
 
+      # if the selection corresponds to a method then execute it.
+      # The problem with this is, if you were just giving options and there was a method by that name
+      # as in 'show'
       binding = hash[ch]
       binding = hash[ch.to_sym] unless binding
       if binding
@@ -336,11 +338,14 @@ module HackerCurse
     def main_menu
       h = { 
         :f => :choose_forum,
+        :m => :fetch_more,
         :c => :color_scheme_select,
         #:s => :sort_menu, 
         #:F => :filter_menu,
         :a => :add_forum,
         :d => :remove_forum,
+        :R => :reddit_options,
+        :H => :hacker_options,
         :x => :extras
       }
       ch, binding = menu "Main Menu", h
@@ -357,6 +362,16 @@ module HackerCurse
       }
       ch, binding = menu "Main Menu", h
       #alert "Menu got #{ch}, #{binding}" if ch
+    end
+    # fetch next page using the next url.
+    # FIXME : since this updates the same cache file, i cannot go back to first page. There is no
+    #   previous page. or reset.
+    def fetch_more
+      more_url = @yaml_obj[:next_url]
+      #perror "more url is #{more_url} "
+      #fetch_data_from_net $subforum, more_url
+      file = fetch_data_from_net @current_forum, more_url
+      display_yml file if file
     end
     def color_scheme_select ch=nil
       unless ch
@@ -497,6 +512,7 @@ module HackerCurse
       w = @form.by_name["tv"]
 
       obj = YAML::load( File.open( file ) )
+      @yaml_obj = obj # needed to get next_url, or should be just store as instance or in @hash
       lines = Array.new
       articles = obj[:articles]
       count = articles.count
@@ -569,38 +585,46 @@ module HackerCurse
     end
     alias :show :display_yml
     def get_data forum
-      @num_pages = 1
-      host = forum_to_host forum
-      m = nil
-      more_url = nil # FIXME
-      if more_url
-        m = "-u #{more_url} "
-        m = "-u '" + more_url + "'"
-      end
-      #file = forum + ".yml"
       file = forum_to_file forum
       if File.exists? file and fresh?(file)
       else
-        progress_dialog :color_pair => $reversecolor do |sw|
-          sw.print "Fetching #{forum} ..."
-          #system("hackercli.rb -y #{file} #{forum}")
-          #retval = system("hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}")
-          command = "hacker-yml.rb --pages #{@num_pages} -H #{host} -s #{forum} -y #{file} #{m}"
-          #o,e,s = Open3.capture3("hackercli.rb -y #{file} #{forum}")
-          o,e,s = Open3.capture3(command)
-          unless s.success?
-            $log.debug "  error from capture3 #{e}"
-            alert e
-            return
-          end
-        end
+        ret = fetch_data_from_net forum
+        return unless ret
       end
       if File.exists? file
         @current_forum = forum
         display_yml file
       else
-        alert "#{file} not created. Check externally. run hackercli.rb -y #{file} #{forum} externally"
+        alert "#{file} not created. Check externally. run hacker-yml.rb -y #{file} -h HOST-s #{forum} externally"
       end
+    end
+
+    # get data from net, do not check for file.
+    # @param forum String forum name, e.g. ruby, programming
+    # @param more_url is the url of the next page
+    def fetch_data_from_net forum, more_url=nil
+      @num_pages = 1
+      host = forum_to_host forum
+      file = forum_to_file forum
+      m = nil
+      if more_url
+        m = "-u #{more_url} "
+        m = "-u '" + more_url + "'"
+      end
+      progress_dialog :color_pair => $reversecolor do |sw|
+        command = "hacker-yml.rb --pages #{@num_pages} -H #{host} -s #{forum} -y #{file} #{m}"
+        sw.print "Fetching #{forum} ..."
+        #system("hackercli.rb -y #{file} #{forum}")
+        #retval = system("hacker-yml.rb --pages #{$num_pages} -H #{$host} -s #{subforum} -y #{filename} #{m}")
+        #o,e,s = Open3.capture3("hackercli.rb -y #{file} #{forum}")
+        o,e,s = Open3.capture3(command)
+        unless s.success?
+          $log.debug "  error from capture3 #{e}"
+          alert e
+          return nil
+        end
+      end
+      return file
     end
     # return true if younger than one hour
     def fresh? file
@@ -608,7 +632,7 @@ module HackerCurse
 
       f = File.stat(file)
       now = Time.now
-      return (( now - f.mtime) < 7200)
+      return (( now - f.mtime) < 3600)
     end
     def show_links art
       return unless art
@@ -735,6 +759,57 @@ module HackerCurse
     #$log.debug "  view_properties #{s.size} , #{s} "
     treedialog tree, :title => "Properties"
   end
+  def reddit_options menu_text=nil
+    if @hacker_forums.include? @current_forum
+      alert "Reddit options invalid inside Hacker News subforum"
+      return
+    end
+    h = { 
+      :n => :new,
+      :r => :rising,
+      :c => :controversial,
+      :t => :top,
+      :h => :hot
+    }
+    subforum = @current_forum
+    unless menu_text
+      ch, menu_text = menu "Reddit Options for #{subforum} ", h
+    end
+    if menu_text
+      if menu_text == :hot
+        file = fetch_data_from_net "#{subforum}"
+        display_yml file if file
+      else
+        m = menu_text.to_s
+        s =  "#{subforum}".sub(/\/.*/, '')
+        file = fetch_data_from_net "#{s}/#{m}"
+        display_yml file if file
+      end
+    end
+  end
+  def hacker_options menu_text=nil
+
+    # there is a method called show already. this is an issue with menu, it executes the option if it finds it
+    h = { 
+      :n => :news,
+      :w => :newest,
+      # added space before show so does not conflict with 'show' method
+      :s => " show",
+      :j => :jobs,
+      :a => :ask
+    }
+    # TODO ask article needs host name prepended
+    # TODO jobs has no comments, check if nil
+    unless menu_text
+      ch, menu_text = menu "Hacker Options", h
+    end
+    if menu_text
+      # added the strip due to space before show
+      m = menu_text.to_s.strip
+      file = fetch_data_from_net m
+      display_yml file if file
+    end
+  end
   end # class
 end # module HackerCurse
 include HackerCurse
@@ -776,7 +851,7 @@ App.new do
   $log = create_logger "hacker.log"
   @h = Redford.new self, options
   @color_scheme = @h.color_scheme
-  @header = app_header "Redford #{VERSION}", :text_center => "Hacker and Reddit Reader", :name => "header",
+  @header = app_header "redford #{VERSION}", :text_center => "Hacker and Reddit Reader", :name => "header",
     :text_right =>"Menu `", :color => :white, :bgcolor => @color_scheme[:header_bg]
   message "Press F10 (or qq) to exit, F1 Help, ` for Menu  "
 
