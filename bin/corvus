@@ -6,7 +6,7 @@
 #       Author: jkepler  http://github.com/mare-imbrium//jkepler
 #         Date: 2014-07-30
 #      License: MIT
-#  Last update: 2014-09-11 12:56
+#  Last update: 2016-03-21 00:05
 # ----------------------------------------------------------------------------- #
 #  corvus.rb  Copyright (C) 2014 j kepler
 #  == TODO
@@ -369,8 +369,8 @@ def fetch_data_from_net subforum=nil, more_url=nil
     print "Enter name of subforum: "
     subforum = Readline::readline('>', true)
     return if subforum == ""
-    $host = forum_to_host subforum
   end
+    $host = forum_to_host subforum
   filename = forum_to_file subforum
   print "fetching for #{subforum} ... saving to #{filename}\n"
   m = nil
@@ -409,7 +409,8 @@ def file_to_forum filename
 end
 def forum_to_file forum
   file = "#{forum}.yml".sub("/","__")
-  file = "#{$cache_path}/#{file}"
+  cp = File.expand_path $cache_path
+  file = "#{cp}/#{file}"
 end
 def forum_to_host fo
   if $hacker_forums.include? fo
@@ -1075,7 +1076,8 @@ def choose_forum
 end
 def data_cached_for filename
   f = "#{filename}.yml".gsub("/","__")
-  f = "#{$cache_path}/#{f}"
+  cp = File.expand_path $cache_path
+  f = "#{cp}/#{f}"
   return f if File.exists? f
   perror "No data cached for #{f} "
   return nil
@@ -2241,7 +2243,8 @@ def ctrlp arr
   end
 end
 def get_hint
-  if $gviscols == 2 and $view.size > 25
+  #if $gviscols == 2 and $view.size > 25
+  if $gviscols == 2 #and $view.size > 25
     return "(Toggle) Press =1 to see single column, =l for long listing"
   end
   if $long_listing
