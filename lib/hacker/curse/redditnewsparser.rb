@@ -4,7 +4,7 @@ module HackerCurse
 
   class RedditNewsParser < AbstractSiteParser
     def initialize config={}
-      @host = config[:host] || "http://www.reddit.com/"
+      @host = config[:host] || "https://www.reddit.com"
       subforum = config[:subforum] || "unknown"
       _url="#{@host}/r/#{subforum}/.mobile"
       config[:url] ||= _url
@@ -15,6 +15,7 @@ module HackerCurse
       $stderr.puts "_retrieve_page got url #{url} "
       raise "url should be string" unless url.is_a? String
       arr = to_hash url
+      return nil unless arr # exception was caught
       page = hash_to_class arr
       #to_yml "#{@subforum}OLD.yml", arr
       return page
@@ -32,6 +33,7 @@ module HackerCurse
       page = {}
       arr = Array.new
       doc  = get_doc_for_url url
+      return nil unless doc # exception was caught
       page[:url] = url
       now = Time.now
       page[:create_date_seconds] = now.to_i
