@@ -147,6 +147,7 @@ module HackerCurse
     end
     def get_first_page
       #@arr = to_hash @url
+      # 2016-03-20 - 23:45 page can be nil if HTTPError
       page = _retrieve_page @url
     end
     def get_next_page opts={}
@@ -213,17 +214,27 @@ module HackerCurse
       end
     end
     # returns nokogiri html doc and writes html is required.
+    # returns nil if HTTPError
     def get_doc_for_url url
-      #puts "get_doc #{url} "
-      out = open(url)
-      doc  = Nokogiri::HTML(out)
-      if @save_html
-        subforum = @subforum || "unknown"
-        outfile = @htmloutfile || "#{subforum}.html"
-        #if !File.exists? url
-        out.rewind
+      $stderr.puts "get_doc #{url} "
+      doc = nil
+      # 2016-03-20 - added check since sometimes server error was coming
+      begin
+        out = open(url)
+      rescue StandardError=>e
+        $stderr.puts "\tError: #{e}"
+        # 2016-03-20 - adding exit since it will go to client that shelled this command.
+        exit 1
+      else
+        doc  = Nokogiri::HTML(out)
+        if @save_html
+          subforum = @subforum || "unknown"
+          outfile = @htmloutfile || "#{subforum}.html"
+          #if !File.exists? url
+          out.rewind
           File.open(outfile, 'w') {|f| f.write(out.read) }
-        #end
+          #end
+        end
       end
       return doc
     end
