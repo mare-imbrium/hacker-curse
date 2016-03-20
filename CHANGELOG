@@ -1,0 +1,4 @@
+= hacker-curse 0.0.3 2016-03-21
+* changed http to https
+* File.expand_path for cache_dir
+* checking for HTTPError when fetching RSS
